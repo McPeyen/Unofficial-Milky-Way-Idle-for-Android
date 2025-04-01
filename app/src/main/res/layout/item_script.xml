@@ -28,39 +28,39 @@
                     android:id="@+id/script_name"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:text="Script Name"
                     android:textAppearance="@style/TextAppearance.AppCompat.Medium"
-                    android:textStyle="bold"
-                    android:text="Script Name" />
+                    android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/script_type"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
-                    android:text="URL Script" />
+                    android:text="URL Script"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small" />
 
                 <TextView
                     android:id="@+id/script_url"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
                     android:ellipsize="end"
                     android:maxLines="1"
-                    android:text="https://example.com/script.js" />
+                    android:text="https://example.com/script.js"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small" />
 
             </LinearLayout>
 
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="end">
+                android:gravity="end"
+                android:orientation="vertical">
 
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -78,9 +78,9 @@
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
+                    android:layout_marginTop="8dp"
                     android:gravity="center_vertical"
-                    android:layout_marginTop="8dp">
+                    android:orientation="horizontal">
 
                     <TextView
                         android:layout_width="wrap_content"

@@ -8,44 +8,44 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Script Name:"
-        android:layout_marginBottom="4dp" />
+        android:layout_marginBottom="4dp"
+        android:text="Script Name:" />
 
     <EditText
         android:id="@+id/script_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
         android:hint="Enter script name"
-        android:inputType="text"
-        android:layout_marginBottom="8dp" />
+        android:inputType="text" />
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Script URL:"
-        android:layout_marginBottom="4dp" />
+        android:layout_marginBottom="4dp"
+        android:text="Script URL:" />
 
     <EditText
         android:id="@+id/script_url"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
         android:hint="https://example.com/script.js"
-        android:inputType="textUri"
-        android:layout_marginBottom="8dp" />
+        android:inputType="textUri" />
 
     <CheckBox
         android:id="@+id/script_enabled"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Enable script"
+        android:layout_marginBottom="8dp"
         android:checked="true"
-        android:layout_marginBottom="8dp" />
+        android:text="Enable script" />
 
     <CheckBox
         android:id="@+id/script_auto_update"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Automatically update script"
-        android:checked="true" />
+        android:checked="true"
+        android:text="Automatically update script" />
 
 </LinearLayout>

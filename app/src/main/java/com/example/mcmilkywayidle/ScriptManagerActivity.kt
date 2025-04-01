@@ -96,10 +96,12 @@ class ScriptManagerActivity : AppCompatActivity() {
             val autoUpdate = autoUpdateCheckbox.isChecked
 
             // Pattern for URLs like https://greasyfork.org/{lang}/scripts/{number}-{scriptname}
-            val baseUrlPattern = """https://greasyfork\.org/[^/]+/scripts/\d+(?:-[^/]+)?$""".toRegex()
+            val baseUrlPattern =
+                """https://greasyfork\.org/[^/]+/scripts/\d+(?:-[^/]+)?$""".toRegex()
 
             // Pattern for URLs like https://greasyfork.org/{lang}/scripts/{number}-{scriptname}/code
-            val codeUrlPattern = """https://greasyfork\.org/[^/]+/scripts/\d+(?:-[^/]+)?/code$""".toRegex()
+            val codeUrlPattern =
+                """https://greasyfork\.org/[^/]+/scripts/\d+(?:-[^/]+)?/code$""".toRegex()
 
             // Modify URL based on the pattern
             val modifiedUrl = when {
@@ -123,7 +125,6 @@ class ScriptManagerActivity : AppCompatActivity() {
                 ).show()
                 return@setOnClickListener
             }
-
 
             // Show loading toast
             Toast.makeText(

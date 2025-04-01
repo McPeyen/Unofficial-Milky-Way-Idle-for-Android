@@ -26,9 +26,9 @@
 
         <activity
             android:name=".ScriptManagerActivity"
+            android:exported="false"
             android:label="Script Manager"
-            android:parentActivityName=".MainActivity"
-            android:exported="false" />
+            android:parentActivityName=".MainActivity" />
 
     </application>
 

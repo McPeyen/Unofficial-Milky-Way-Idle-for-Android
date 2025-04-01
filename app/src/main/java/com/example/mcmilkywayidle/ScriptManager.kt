@@ -41,7 +41,10 @@ class ScriptManager(private val context: Context) {
 
                 val mwiDependencies = JSONObject()
                 mwiDependencies.put("name", "MWITools-Dependencies")
-                mwiDependencies.put("url", "https://raw.githubusercontent.com/YangLeda/Userscripts-For-MilkyWayIdle/refs/heads/main/MWITools%20addon%20for%20Steam%20version.js")
+                mwiDependencies.put(
+                    "url",
+                    "https://raw.githubusercontent.com/YangLeda/Userscripts-For-MilkyWayIdle/refs/heads/main/MWITools%20addon%20for%20Steam%20version.js"
+                )
                 mwiDependencies.put("filename", "mwitools_dependencies.js")
                 mwiDependencies.put("enabled", true)
                 mwiDependencies.put("lastUpdated", 0)
@@ -50,7 +53,10 @@ class ScriptManager(private val context: Context) {
 
                 val mwitools = JSONObject()
                 mwitools.put("name", "MWITools")
-                mwitools.put("url", "https://greasyfork.org/en/scripts/494467-mwitools/code/script.user.js")
+                mwitools.put(
+                    "url",
+                    "https://greasyfork.org/en/scripts/494467-mwitools/code/script.user.js"
+                )
                 mwitools.put("filename", "mwitools.js")
                 mwitools.put("enabled", true)
                 mwitools.put("lastUpdated", 0)
@@ -168,7 +174,6 @@ class ScriptManager(private val context: Context) {
             override fun onPostExecute(success: Boolean) {
                 callback(success)  // Note: now calling directly instead of callback?.onComplete()
             }
-
 
 
         }.execute()
@@ -337,30 +342,30 @@ class ScriptManager(private val context: Context) {
 
     fun allScripts(): List<ScriptInfo> {
 
-            val scriptList: MutableList<ScriptInfo> = ArrayList()
+        val scriptList: MutableList<ScriptInfo> = ArrayList()
 
-            try {
-                val config = loadConfig()
-                val scripts = config.getJSONArray("scripts")
+        try {
+            val config = loadConfig()
+            val scripts = config.getJSONArray("scripts")
 
-                for (i in 0..<scripts.length()) {
-                    val script = scripts.getJSONObject(i)
+            for (i in 0..<scripts.length()) {
+                val script = scripts.getJSONObject(i)
 
-                    val name = script.getString("name")
-                    val filename = script.getString("filename")
-                    val enabled = script.getBoolean("enabled")
-                    val custom = script.optBoolean("custom", false)
-                    val url = script.optString("url", "")
-                    val autoUpdate = script.optBoolean("autoUpdate", false)
+                val name = script.getString("name")
+                val filename = script.getString("filename")
+                val enabled = script.getBoolean("enabled")
+                val custom = script.optBoolean("custom", false)
+                val url = script.optString("url", "")
+                val autoUpdate = script.optBoolean("autoUpdate", false)
 
-                    scriptList.add(ScriptInfo(name, filename, enabled, custom, url, autoUpdate))
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error getting all scripts", e)
+                scriptList.add(ScriptInfo(name, filename, enabled, custom, url, autoUpdate))
             }
-
-            return scriptList
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting all scripts", e)
         }
+
+        return scriptList
+    }
 
     fun injectEnabledScripts(webView: WebView) {
         try {

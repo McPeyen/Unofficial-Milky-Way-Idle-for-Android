@@ -4,20 +4,20 @@
 
     <item
         android:id="@+id/action_scripts"
-        android:title="Manage Scripts"
         android:icon="@android:drawable/ic_menu_edit"
+        android:title="Manage Scripts"
         app:showAsAction="ifRoom" />
 
     <item
         android:id="@+id/action_update_scripts"
-        android:title="Update Scripts"
         android:icon="@android:drawable/ic_menu_rotate"
+        android:title="Update Scripts"
         app:showAsAction="never" />
 
     <item
         android:id="@+id/action_refresh"
-        android:title="Refresh Page"
         android:icon="@android:drawable/ic_menu_rotate"
+        android:title="Refresh Page"
         app:showAsAction="never" />
 
 </menu>
