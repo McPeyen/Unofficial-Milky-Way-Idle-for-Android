@@ -1,4 +1,4 @@
-package com.example.mcmilkywayidle.ui.theme
+package com.moo.unofficialmilkywayidle.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

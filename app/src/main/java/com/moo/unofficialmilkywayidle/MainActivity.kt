@@ -1,4 +1,4 @@
-package com.example.mcmilkywayidle
+package com.moo.unofficialmilkywayidle
 
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -87,58 +87,61 @@ class MainActivity : AppCompatActivity() {
 
     private fun injectSettings(webView: WebView) {
         val jsCode = """
-        (function mcMwiSettings () {
+        const mcSettings = () => {
             const targetNode = document.querySelector("div.SettingsPanel_gameTab__n2hAG");
             if (targetNode) {
-                // Create container div to hold text and button
-                let container = document.createElement("div");
-                container.style.display = "flex";
-                container.style.alignItems = "center";
-                container.style.margin = "10px 0";
+                const existingButton = targetNode.querySelector('[data-script-manager="true"]');
+                if (!existingButton) {
+                    // Create container div to hold text and button
+                    let container = document.createElement("div");
+                    container.setAttribute("data-script-manager", "true"); // Add a data attribute to identify our element
+                    container.style.display = "flex";
+                    container.style.alignItems = "center";
+                    container.style.margin = "10px 0";
                 
-                // Create text label
-                let label = document.createElement("span");
-                label.innerHTML = "Open Script Manager: ";
-                label.style.marginRight = "10px";
+                    // Create text label
+                    let label = document.createElement("span");
+                    label.innerHTML = "Open Script Manager: ";
+                    label.style.marginRight = "10px";
             
-                // Create button with icon
-                let button = document.createElement("button");
-                button.style.backgroundColor = "#4357af";
-                button.style.color = "white";
-                button.style.border = "none";
-                button.style.borderRadius = "4px";
-                button.style.padding = "5px 10px";
-                button.style.cursor = "pointer";
-                button.style.display = "flex";
-                button.style.alignItems = "center";
-                button.style.justifyContent = "center";
+                    // Create button with icon
+                    let button = document.createElement("button");
+                    button.style.backgroundColor = "#4357af";
+                    button.style.color = "white";
+                    button.style.border = "none";
+                    button.style.borderRadius = "4px";
+                    button.style.padding = "5px 10px";
+                    button.style.cursor = "pointer";
+                    button.style.display = "flex";
+                    button.style.alignItems = "center";
+                    button.style.justifyContent = "center";
             
-                // Add icon (using a simple SVG code icon)
-                button.innerHTML = `
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
-                        <line x1="16" y1="13" x2="8" y2="13"></line>
-                        <line x1="16" y1="17" x2="8" y2="17"></line>
-                        <polyline points="10 9 9 9 8 9"></polyline>
-                    </svg>
-                    Script Manager
-                `;
+                    // Add icon (using a simple SVG code icon)
+                    button.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                        Script Manager
+                    `;
             
-                // Add click event listener to call openScriptManager()
-                button.addEventListener("click", function() {
-                    window.Android.openScriptManager();
-                });
+                    // Add click event listener to call openScriptManager()
+                    button.addEventListener("click", function() {
+                        window.Android.openScriptManager();
+                    });
             
-                // Assemble and add to the page
-                container.appendChild(label);
-                container.appendChild(button);
-                targetNode.insertAdjacentElement("beforeend", container);
-            
-            } else {
-                setTimeout(mcMwiSettings, 500);
+                    // Assemble and add to the page
+                    container.appendChild(label);
+                    container.appendChild(button);
+                    targetNode.insertAdjacentElement("beforeend", container);            
+                }
             }
-        })();
+            setTimeout(mcSettings, 500);            
+        };        
+        mcSettings();
     """.trimIndent()
 
         webView.addJavascriptInterface(WebAppInterface(), "Android")

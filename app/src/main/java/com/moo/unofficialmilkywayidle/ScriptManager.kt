@@ -1,4 +1,4 @@
-package com.example.mcmilkywayidle
+package com.moo.unofficialmilkywayidle
 
 import android.content.Context
 import android.content.SharedPreferences

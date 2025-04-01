@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.mcmilkywayidle"
+    namespace = "com.moo.unofficialmilkywayidle"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.mcmilkywayidle"
+        applicationId = "com.moo.unofficialmilkywayidle"
         minSdk = 28
         targetSdk = 35
         versionCode = 1

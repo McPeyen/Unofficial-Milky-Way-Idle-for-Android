@@ -1,4 +1,4 @@
-package com.example.mcmilkywayidle.ui.theme
+package com.moo.unofficialmilkywayidle.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme

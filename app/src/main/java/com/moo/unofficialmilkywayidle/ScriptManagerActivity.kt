@@ -1,4 +1,4 @@
-package com.example.mcmilkywayidle
+package com.moo.unofficialmilkywayidle
 
 import android.app.AlertDialog
 import android.content.DialogInterface
@@ -15,6 +15,7 @@ import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.Toolbar
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -28,6 +29,7 @@ class ScriptManagerActivity : AppCompatActivity() {
 
     protected override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         setContentView(R.layout.activity_script_manager)
 
         val toolbar: Toolbar = findViewById(R.id.toolbar)
