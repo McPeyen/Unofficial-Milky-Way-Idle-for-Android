@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Script Name:"
+        android:layout_marginBottom="4dp" />
+
+    <EditText
+        android:id="@+id/script_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter script name"
+        android:inputType="text"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Script Content:"
+        android:layout_marginBottom="4dp" />
+
+    <EditText
+        android:id="@+id/script_content"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="// Enter your JavaScript code here"
+        android:inputType="textMultiLine"
+        android:gravity="top|start"
+        android:minLines="10"
+        android:layout_marginBottom="8dp" />
+
+    <CheckBox
+        android:id="@+id/script_enabled"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Enable script"
+        android:checked="true" />
+
+</LinearLayout>
