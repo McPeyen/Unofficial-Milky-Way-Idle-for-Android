@@ -95,7 +95,27 @@ class ScriptManagerActivity : AppCompatActivity() {
             val enabled = enabledCheckbox.isChecked
             val autoUpdate = autoUpdateCheckbox.isChecked
 
-            if (name.isEmpty() || url.isEmpty()) {
+            // Pattern for URLs like https://greasyfork.org/{lang}/scripts/{number}-{scriptname}
+            val baseUrlPattern = """https://greasyfork\.org/[^/]+/scripts/\d+(?:-[^/]+)?$""".toRegex()
+
+            // Pattern for URLs like https://greasyfork.org/{lang}/scripts/{number}-{scriptname}/code
+            val codeUrlPattern = """https://greasyfork\.org/[^/]+/scripts/\d+(?:-[^/]+)?/code$""".toRegex()
+
+            // Modify URL based on the pattern
+            val modifiedUrl = when {
+                baseUrlPattern.matches(url) -> "$url/code/script.user.js"
+                codeUrlPattern.matches(url) -> "$url/script.user.js"
+                else -> url
+            }
+
+            // Validate that URL ends with .js
+            if (!modifiedUrl.endsWith(".js")) {
+                // Show error message
+                urlInput.error = "URL must end with .js"
+                return@setOnClickListener
+            }
+
+            if (name.isEmpty() || modifiedUrl.isEmpty()) {
                 Toast.makeText(
                     this@ScriptManagerActivity,
                     "Name and URL are required",
@@ -111,7 +131,7 @@ class ScriptManagerActivity : AppCompatActivity() {
                 "Downloading script...",
                 Toast.LENGTH_SHORT
             ).show()
-            scriptManager!!.addScriptFromUrl(name, url, enabled, autoUpdate) { success ->
+            scriptManager!!.addScriptFromUrl(name, modifiedUrl, enabled, autoUpdate) { success ->
                 if (success) {
                     Toast.makeText(
                         this@ScriptManagerActivity,
