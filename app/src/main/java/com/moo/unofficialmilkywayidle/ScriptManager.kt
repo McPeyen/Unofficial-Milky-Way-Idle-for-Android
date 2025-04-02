@@ -510,6 +510,15 @@ class ScriptManager(private val context: Context) {
                     }
                 };
             };
+            
+            // Create the GM object and attach the functions
+            window.GM = {
+                setValue: GM_setValue,
+                getValue: GM_getValue,
+                addStyle: GM_addStyle,
+                xmlhttpRequest: GM_xmlhttpRequest,
+                notification: GM_notification
+            };
 
             console.log('Greasemonkey API has been initialized with notification support');
         })();
