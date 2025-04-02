@@ -1,4 +1,4 @@
-package com.moo.unofficialmilkywayidle
+package com.mcpeyen.unofficialmilkywayidle
 
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -10,6 +10,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 
@@ -39,7 +40,6 @@ class MainActivity : AppCompatActivity() {
         val webSettings = webView!!.settings
         webSettings.javaScriptEnabled = true
         webSettings.domStorageEnabled = true
-        webSettings.databaseEnabled = true
         webSettings.cacheMode = WebSettings.LOAD_DEFAULT
 
         // Load Milky Way Idle website
@@ -47,6 +47,16 @@ class MainActivity : AppCompatActivity() {
 
         // Check for script updates
         updateScripts()
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (webView!!.canGoBack()) {
+                    webView!!.goBack()
+                } else {
+                    finish() // Close the activity
+                }
+            }
+        })
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -69,14 +79,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         return super.onOptionsItemSelected(item)
-    }
-
-    override fun onBackPressed() {
-        if (webView!!.canGoBack()) {
-            webView!!.goBack()
-        } else {
-            super.onBackPressed()
-        }
     }
 
     protected override fun onResume() {

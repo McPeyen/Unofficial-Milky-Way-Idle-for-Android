@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.moo.unofficialmilkywayidle">
+    package="com.mcpeyen.unofficialmilkywayidle">
 
 
     <uses-permission android:name="android.permission.INTERNET" />
@@ -15,7 +15,7 @@
         android:theme="@style/AppTheme">
 
         <activity
-            android:name="com.moo.unofficialmilkywayidle.MainActivity"
+            android:name="com.mcpeyen.unofficialmilkywayidle.MainActivity"
             android:configChanges="orientation|screenSize"
             android:exported="true">
             <intent-filter>
@@ -25,10 +25,10 @@
         </activity>
 
         <activity
-            android:name="com.moo.unofficialmilkywayidle.ScriptManagerActivity"
+            android:name="com.mcpeyen.unofficialmilkywayidle.ScriptManagerActivity"
             android:exported="false"
             android:label="Script Manager"
-            android:parentActivityName="com.moo.unofficialmilkywayidle.MainActivity" />
+            android:parentActivityName="com.mcpeyen.unofficialmilkywayidle.MainActivity" />
 
     </application>
 

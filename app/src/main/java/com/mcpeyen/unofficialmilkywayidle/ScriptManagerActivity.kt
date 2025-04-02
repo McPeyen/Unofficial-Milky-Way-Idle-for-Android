@@ -1,4 +1,4 @@
-package com.moo.unofficialmilkywayidle
+package com.mcpeyen.unofficialmilkywayidle
 
 import android.app.AlertDialog
 import android.content.DialogInterface

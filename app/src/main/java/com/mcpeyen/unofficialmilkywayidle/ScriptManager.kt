@@ -1,4 +1,4 @@
-package com.moo.unofficialmilkywayidle
+package com.mcpeyen.unofficialmilkywayidle
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -420,53 +420,6 @@ class ScriptManager(private val context: Context) {
                 document.head.appendChild(style);
                 return style;
             };
-            
-            window.GM_xmlhttpRequest = function(details) {
-                const xhr = new XMLHttpRequest();
-    
-                xhr.open(details.method || 'GET', details.url, true);
-    
-                if (details.headers) {
-                    for (const header in details.headers) {
-                        xhr.setRequestHeader(header, details.headers[header]);
-                    }
-                }
-    
-                // Set responseType if specified
-                if (details.responseType) {
-                    xhr.responseType = details.responseType;
-                }
-    
-                // Set timeout if specified
-                if (details.timeout) {
-                    xhr.timeout = details.timeout;
-                }
-    
-                // Handle all the callbacks properly
-                xhr.onload = function() {
-                    if (details.onload) {
-                        details.onload({
-                            responseText: xhr.responseText,
-                            responseXML: xhr.responseXML,
-                            response: xhr.response,
-                            status: xhr.status,
-                            statusText: xhr.statusText,
-                            readyState: xhr.readyState,
-                            finalUrl: xhr.responseURL
-                        });
-                    }
-                };
-    
-                if (details.onerror) xhr.onerror = function() { details.onerror(xhr); };
-                if (details.onabort) xhr.onabort = function() { details.onabort(xhr); };
-                if (details.ontimeout) xhr.ontimeout = function() { details.ontimeout(xhr); };
-                if (details.onprogress) xhr.onprogress = function(e) { details.onprogress(e); };
-    
-                xhr.send(details.data || null);
-    
-                // Return an object with an abort method
-                return { abort: function() { xhr.abort(); } };
-            };         
 
             window.GM_xmlhttpRequest = function(details) {
                 return new Promise((resolve, reject) => {
@@ -483,11 +436,6 @@ class ScriptManager(private val context: Context) {
                     // Set responseType if specified
                     if (details.responseType) {
                         xhr.responseType = details.responseType;
-                    }
-        
-                    // Set timeout if specified
-                    if (details.timeout) {
-                        xhr.timeout = details.timeout;
                     }
         
                     // Create response object that mimics Greasemonkey's response format
