@@ -2,9 +2,12 @@ package com.moo.unofficialmilkywayidle
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.os.AsyncTask
 import android.util.Log
 import android.webkit.WebView
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -76,44 +79,40 @@ class ScriptManager(private val context: Context) {
     }
 
     fun updateAllScripts(onComplete: Runnable?) {
-        object : AsyncTask<Void?, Void?, Void?>() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val config = loadConfig()
+                val scripts = config.getJSONArray("scripts")
 
-            override fun onPostExecute(result: Void?) {
-                onComplete?.run()
-            }
+                for (i in 0..<scripts.length()) {
+                    val script = scripts.getJSONObject(i)
+                    if (script.getBoolean("autoUpdate")) {
+                        val lastUpdated = script.getLong("lastUpdated")
+                        val currentTime = System.currentTimeMillis()
 
-            override fun doInBackground(vararg params: Void?): Void? {
-                try {
-                    val config = loadConfig()
-                    val scripts = config.getJSONArray("scripts")
+                        // Update if it's been more than the update interval
+                        if (currentTime - lastUpdated > UPDATE_INTERVAL) {
+                            val url = script.getString("url")
+                            val filename = script.getString("filename")
+                            downloadScript(url, filename)
 
-                    for (i in 0..<scripts.length()) {
-                        val script = scripts.getJSONObject(i)
-                        if (script.getBoolean("autoUpdate")) {
-                            val lastUpdated = script.getLong("lastUpdated")
-                            val currentTime = System.currentTimeMillis()
-
-                            // Update if it's been more than the update interval
-                            if (currentTime - lastUpdated > UPDATE_INTERVAL) {
-                                val url = script.getString("url")
-                                val filename = script.getString("filename")
-                                downloadScript(url, filename)
-
-                                // Update last updated time
-                                script.put("lastUpdated", currentTime)
-                            }
+                            // Update last updated time
+                            script.put("lastUpdated", currentTime)
                         }
                     }
-
-                    // Save updated config
-                    saveConfig(config)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error updating scripts", e)
                 }
-                return null
-            }
 
-        }.execute()
+                // Save updated config
+                saveConfig(config)
+
+                // Switch to main thread to run the completion callback
+                withContext(Dispatchers.Main) {
+                    onComplete?.run()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error updating scripts", e)
+            }
+        }
     }
 
     fun addScriptFromUrl(
@@ -123,24 +122,23 @@ class ScriptManager(private val context: Context) {
         autoUpdate: Boolean,
         callback: (Boolean) -> Unit
     ) {
-        object : AsyncTask<Void?, Void?, Boolean>() {
-            override fun doInBackground(vararg params: Void?): Boolean {
-                try {
-                    // Generate filename from name
-                    val filename = name.lowercase(Locale.getDefault())
-                        .replace("[^a-z0-9]".toRegex(), "_") + ".js"
+        CoroutineScope(Dispatchers.IO).launch {
+            val success = try {
+                // Generate filename from name
+                val filename = name.lowercase(Locale.getDefault())
+                    .replace("[^a-z0-9]".toRegex(), "_") + ".js"
 
-                    // Download the script
-                    val success = downloadScript(url, filename)
-                    if (!success) {
-                        return false
-                    }
-
+                // Download the script
+                val downloadSuccess = downloadScript(url, filename)
+                if (!downloadSuccess) {
+                    false
+                } else {
                     // Add to config
                     val config = loadConfig()
                     val scripts = config.getJSONArray("scripts")
 
                     // Check if script already exists
+                    var scriptExists = false
                     for (i in 0..<scripts.length()) {
                         val script = scripts.getJSONObject(i)
                         if (script.getString("filename") == filename) {
@@ -148,73 +146,75 @@ class ScriptManager(private val context: Context) {
                             script.put("enabled", enabled)
                             script.put("autoUpdate", autoUpdate)
                             script.put("lastUpdated", System.currentTimeMillis())
-                            saveConfig(config)
-                            return true
+                            scriptExists = true
+                            break
                         }
                     }
 
-                    // Add new script
-                    val script = JSONObject()
-                    script.put("name", name)
-                    script.put("url", url)
-                    script.put("filename", filename)
-                    script.put("enabled", enabled)
-                    script.put("autoUpdate", autoUpdate)
-                    script.put("lastUpdated", System.currentTimeMillis())
-                    scripts.put(script)
+                    // Add new script if it doesn't exist
+                    if (!scriptExists) {
+                        val script = JSONObject()
+                        script.put("name", name)
+                        script.put("url", url)
+                        script.put("filename", filename)
+                        script.put("enabled", enabled)
+                        script.put("autoUpdate", autoUpdate)
+                        script.put("lastUpdated", System.currentTimeMillis())
+                        scripts.put(script)
+                    }
 
                     saveConfig(config)
-                    return true
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error adding script from URL", e)
-                    return false
+                    true
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error adding script from URL", e)
+                false
             }
 
-            override fun onPostExecute(success: Boolean) {
-                callback(success)  // Note: now calling directly instead of callback?.onComplete()
+            // Switch to main thread to call the callback
+            withContext(Dispatchers.Main) {
+                callback(success)
             }
-
-
-        }.execute()
+        }
     }
 
     fun addCustomScript(
         name: String,
         content: String,
         enabled: Boolean,
-        callback: (Boolean) -> Unit  // Now accepts a lambda directly
+        callback: (Boolean) -> Unit
     ) {
-        object : AsyncTask<Void?, Void?, Boolean>() {
-            override fun doInBackground(vararg voids: Void?): Boolean {
-                try {
-                    // Generate filename from name
-                    val filename = name.lowercase(Locale.getDefault())
-                        .replace("[^a-z0-9]".toRegex(), "_") + ".js"
+        CoroutineScope(Dispatchers.IO).launch {
+            val success = try {
+                // Generate filename from name
+                val filename = name.lowercase(Locale.getDefault())
+                    .replace("[^a-z0-9]".toRegex(), "_") + ".js"
 
-                    // Save the script content
-                    val file = File(File(context.filesDir, SCRIPTS_DIR), filename)
-                    val fos = FileOutputStream(file)
+                // Save the script content
+                val file = File(File(context.filesDir, SCRIPTS_DIR), filename)
+                FileOutputStream(file).use { fos ->
                     fos.write(content.toByteArray())
-                    fos.close()
+                }
 
-                    // Add to config
-                    val config = loadConfig()
-                    val scripts = config.getJSONArray("scripts")
+                // Add to config
+                val config = loadConfig()
+                val scripts = config.getJSONArray("scripts")
 
-                    // Check if script already exists
-                    for (i in 0..<scripts.length()) {
-                        val script = scripts.getJSONObject(i)
-                        if (script.getString("filename") == filename) {
-                            script.put("enabled", enabled)
-                            script.put("custom", true)
-                            script.put("lastUpdated", System.currentTimeMillis())
-                            saveConfig(config)
-                            return true
-                        }
+                // Check if script already exists
+                var scriptExists = false
+                for (i in 0..<scripts.length()) {
+                    val script = scripts.getJSONObject(i)
+                    if (script.getString("filename") == filename) {
+                        script.put("enabled", enabled)
+                        script.put("custom", true)
+                        script.put("lastUpdated", System.currentTimeMillis())
+                        scriptExists = true
+                        break
                     }
+                }
 
-                    // Add new script
+                // Add new script if it doesn't exist
+                if (!scriptExists) {
                     val script = JSONObject()
                     script.put("name", name)
                     script.put("filename", filename)
@@ -222,28 +222,28 @@ class ScriptManager(private val context: Context) {
                     script.put("custom", true)
                     script.put("lastUpdated", System.currentTimeMillis())
                     scripts.put(script)
-
-                    saveConfig(config)
-                    return true
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error adding custom script", e)
-                    return false
                 }
+
+                saveConfig(config)
+                true
+            } catch (e: Exception) {
+                Log.e(TAG, "Error adding custom script", e)
+                false
             }
 
-            override fun onPostExecute(success: Boolean) {
-                callback(success)  // Call the lambda directly
+            // Switch to main thread to call the callback
+            withContext(Dispatchers.Main) {
+                callback(success)
             }
-        }.execute()
+        }
     }
-
     private fun downloadScript(scriptUrl: String, filename: String): Boolean {
         var connection: HttpURLConnection? = null
         try {
             val url = URL(scriptUrl)
             connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
-            connection!!.connectTimeout = 15000
+            connection.connectTimeout = 15000
             connection.readTimeout = 15000
             connection.connect()
 
@@ -420,23 +420,131 @@ class ScriptManager(private val context: Context) {
                 document.head.appendChild(style);
                 return style;
             };
-
+            
             window.GM_xmlhttpRequest = function(details) {
                 const xhr = new XMLHttpRequest();
-                xhr.open(details.method || 'GET', details.url);
-
+    
+                xhr.open(details.method || 'GET', details.url, true);
+    
                 if (details.headers) {
                     for (const header in details.headers) {
                         xhr.setRequestHeader(header, details.headers[header]);
                     }
                 }
+    
+                // Set responseType if specified
+                if (details.responseType) {
+                    xhr.responseType = details.responseType;
+                }
+    
+                // Set timeout if specified
+                if (details.timeout) {
+                    xhr.timeout = details.timeout;
+                }
+    
+                // Handle all the callbacks properly
+                xhr.onload = function() {
+                    if (details.onload) {
+                        details.onload({
+                            responseText: xhr.responseText,
+                            responseXML: xhr.responseXML,
+                            response: xhr.response,
+                            status: xhr.status,
+                            statusText: xhr.statusText,
+                            readyState: xhr.readyState,
+                            finalUrl: xhr.responseURL
+                        });
+                    }
+                };
+    
+                if (details.onerror) xhr.onerror = function() { details.onerror(xhr); };
+                if (details.onabort) xhr.onabort = function() { details.onabort(xhr); };
+                if (details.ontimeout) xhr.ontimeout = function() { details.ontimeout(xhr); };
+                if (details.onprogress) xhr.onprogress = function(e) { details.onprogress(e); };
+    
+                xhr.send(details.data || null);
+    
+                // Return an object with an abort method
+                return { abort: function() { xhr.abort(); } };
+            };         
 
-                if (details.onload) xhr.onload = details.onload;
-                if (details.onerror) xhr.onerror = details.onerror;
-
-                xhr.send(details.data);
+            window.GM_xmlhttpRequest = function(details) {
+                return new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+        
+                    xhr.open(details.method || 'GET', details.url, !details.synchronous);
+        
+                    if (details.headers) {
+                        for (const header in details.headers) {
+                            xhr.setRequestHeader(header, details.headers[header]);
+                        }
+                    }
+        
+                    // Set responseType if specified
+                    if (details.responseType) {
+                        xhr.responseType = details.responseType;
+                    }
+        
+                    // Set timeout if specified
+                    if (details.timeout) {
+                        xhr.timeout = details.timeout;
+                    }
+        
+                    // Create response object that mimics Greasemonkey's response format
+                    const createResponse = () => {
+                        return {
+                            responseText: xhr.responseText,
+                            responseXML: xhr.responseXML,
+                            response: xhr.response,
+                            status: xhr.status,
+                            statusText: xhr.statusText,
+                            readyState: xhr.readyState,
+                            finalUrl: xhr.responseURL
+                        };
+                    };
+        
+                    xhr.onload = function() {
+                        const response = createResponse();
+                        if (details.onload) details.onload(response);
+                        resolve(response);
+                    };
+        
+                    xhr.onerror = function() {
+                        const response = createResponse();
+                        if (details.onerror) details.onerror(response);
+                        reject(response);
+                    };
+        
+                    xhr.onabort = function() {
+                        const response = createResponse();
+                        if (details.onabort) details.onabort(response);
+                        reject(response);
+                    };
+        
+                    xhr.ontimeout = function() {
+                        const response = createResponse();
+                        if (details.ontimeout) details.ontimeout(response);
+                        reject(response);
+                    };
+        
+                    if (details.onprogress) {
+                        xhr.onprogress = function(e) { 
+                            details.onprogress(e); 
+                        };
+                    }
+        
+                    xhr.send(details.data || null);
+            
+                    // For compatibility with code that expects a return value with abort method
+                    return { 
+                        abort: function() { 
+                            xhr.abort(); 
+                            reject({aborted: true});
+                        } 
+                    };
+                });
             };
-
+            
             window.GM_notification = function(details, ondone) {
                 if (typeof details === 'string') {
                     details = { text: details };
@@ -511,12 +619,14 @@ class ScriptManager(private val context: Context) {
                 };
             };
             
-            // Create the GM object and attach the functions
+            // Create the GM object and attach the functions            
             window.GM = {
                 setValue: GM_setValue,
                 getValue: GM_getValue,
                 addStyle: GM_addStyle,
-                xmlhttpRequest: GM_xmlhttpRequest,
+                xmlHttpRequest: function(details) {
+                    return window.GM_xmlhttpRequest(details);
+                },
                 notification: GM_notification
             };
 
@@ -547,10 +657,6 @@ class ScriptManager(private val context: Context) {
         val fos = FileOutputStream(configFile)
         fos.write(config.toString().toByteArray())
         fos.close()
-    }
-
-    interface ScriptCallback {
-        fun onComplete(success: Boolean)
     }
 
     class ScriptInfo(
