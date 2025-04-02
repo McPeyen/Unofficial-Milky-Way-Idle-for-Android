@@ -59,34 +59,6 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        getMenuInflater().inflate(R.menu.main_menu, menu)
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        val id = item.itemId
-
-        if (id == R.id.action_scripts) {
-            openScriptManager()
-            return true
-        } else if (id == R.id.action_refresh) {
-            webView!!.reload()
-            return true
-        } else if (id == R.id.action_update_scripts) {
-            updateScripts()
-            return true
-        }
-
-        return super.onOptionsItemSelected(item)
-    }
-
-    protected override fun onResume() {
-        super.onResume()
-        // Re-inject scripts when returning to the app (e.g., after changing script settings)
-        injectScripts()
-    }
-
     private fun injectSettings(webView: WebView) {
         val jsCode = """
         const mcSettings = () => {
