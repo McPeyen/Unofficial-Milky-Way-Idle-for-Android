@@ -19,7 +19,7 @@ Download the latest APK release file from this GitHub repository.
 ## Support
 Any changes to the scripts (e.g. enabling, disabling, adding a new one) will require an app restart to take effect. Might look into improving this in the future.
 
-Whisper me (/McPeyen) in game or raise an issue here with any problems.
+Whisper me (McPeyen) in game or raise an issue here with any problems.
 
 ---
 
