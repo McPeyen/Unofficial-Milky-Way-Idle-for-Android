@@ -6,8 +6,7 @@ An unofficial Android client for [Milky Way Idle](https://www.milkywayidle.com/)
 
 - **Custom JavaScript Support**: Run custom scripts to enhance your gameplay experience
   - Support for both URL-based and inline JavaScript
-  - Auto-update option for URL-based scripts
-  - A *Script Manager* via Settings → Game → Script Manager to enable, disable, auto-update, delete, and install your scripts
+  - Auto-update option for URL-based scripts  
  
 - **Script Manager**: Control all of your scripts! Accessed via Settings → Game → Script Manager
   - Enable scripts
@@ -16,7 +15,7 @@ An unofficial Android client for [Milky Way Idle](https://www.milkywayidle.com/)
   - Delete scripts
   - Install new scripts
 
-- **Pre-installed with useful extensions**: There are a few useful extensions that have been bundled in. They are defaulted to disabled and can be enabled through the *Script Manager*
+- **Pre-installed with useful extensions**: There are a few useful extensions that have been bundled in. They are defaulted to **disabled** and can be enabled through the *Script Manager*
   - [MWITools](https://greasyfork.org/en/scripts/494467-mwitools)
   - [MWITools dependencies](https://raw.githubusercontent.com/YangLeda/Userscripts-For-MilkyWayIdle/refs/heads/main/MWITools%20addon%20for%20Steam%20version.js)
 
