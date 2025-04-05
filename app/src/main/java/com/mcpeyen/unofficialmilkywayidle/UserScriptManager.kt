@@ -21,11 +21,11 @@ import java.net.URL
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
-class ScriptManager(private val context: Context) {
-    private val preferences: SharedPreferences
+class UserScriptManager(private val context: Context) {
+    private val preferences: SharedPreferences =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     init {
-        this.preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         initializeScriptsDirectory()
     }
 
@@ -49,9 +49,9 @@ class ScriptManager(private val context: Context) {
                     "https://raw.githubusercontent.com/YangLeda/Userscripts-For-MilkyWayIdle/refs/heads/main/MWITools%20addon%20for%20Steam%20version.js"
                 )
                 mwiDependencies.put("filename", "mwitools_dependencies.js")
-                mwiDependencies.put("enabled", true)
+                mwiDependencies.put("enabled", false)
                 mwiDependencies.put("lastUpdated", 0)
-                mwiDependencies.put("autoUpdate", true)
+                mwiDependencies.put("autoUpdate", false)
                 scripts.put(mwiDependencies)
 
                 val mwitools = JSONObject()
@@ -61,9 +61,9 @@ class ScriptManager(private val context: Context) {
                     "https://greasyfork.org/en/scripts/494467-mwitools/code/script.user.js"
                 )
                 mwitools.put("filename", "mwitools.js")
-                mwitools.put("enabled", true)
+                mwitools.put("enabled", false)
                 mwitools.put("lastUpdated", 0)
-                mwitools.put("autoUpdate", true)
+                mwitools.put("autoUpdate", false)
                 scripts.put(mwitools)
 
                 val config = JSONObject()
@@ -237,6 +237,7 @@ class ScriptManager(private val context: Context) {
             }
         }
     }
+
     private fun downloadScript(scriptUrl: String, filename: String): Boolean {
         var connection: HttpURLConnection? = null
         try {
@@ -369,7 +370,6 @@ class ScriptManager(private val context: Context) {
 
     fun injectEnabledScripts(webView: WebView) {
         try {
-            injectGreasemonkeyAPI(webView)
             val config = loadConfig()
             val scripts = config.getJSONArray("scripts")
 
@@ -388,201 +388,6 @@ class ScriptManager(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "Error injecting enabled scripts", e)
         }
-    }
-
-    private fun injectGreasemonkeyAPI(webView: WebView) {
-        val gmFunctions = """
-        (function() {
-            const gmValues = {};
-
-            window.GM_setValue = function(key, value) {
-                gmValues[key] = value;
-                localStorage.setItem('GM_' + key, JSON.stringify(value));
-            };
-
-            window.GM_getValue = function(key, defaultValue) {
-                if (key in gmValues) return gmValues[key];
-
-                const storedValue = localStorage.getItem('GM_' + key);
-                if (storedValue !== null) {
-                    try {
-                        const value = JSON.parse(storedValue);
-                        gmValues[key] = value;
-                        return value;
-                    } catch(e) {}
-                }
-                return defaultValue;
-            };
-
-            window.GM_addStyle = function(css) {
-                const style = document.createElement('style');
-                style.textContent = css;
-                document.head.appendChild(style);
-                return style;
-            };
-
-            window.GM_xmlhttpRequest = function(details) {
-                return new Promise((resolve, reject) => {
-                    const xhr = new XMLHttpRequest();
-        
-                    xhr.open(details.method || 'GET', details.url, !details.synchronous);
-        
-                    if (details.headers) {
-                        for (const header in details.headers) {
-                            xhr.setRequestHeader(header, details.headers[header]);
-                        }
-                    }
-        
-                    // Set responseType if specified
-                    if (details.responseType) {
-                        xhr.responseType = details.responseType;
-                    }
-        
-                    // Create response object that mimics Greasemonkey's response format
-                    const createResponse = () => {
-                        return {
-                            responseText: xhr.responseText,
-                            responseXML: xhr.responseXML,
-                            response: xhr.response,
-                            status: xhr.status,
-                            statusText: xhr.statusText,
-                            readyState: xhr.readyState,
-                            finalUrl: xhr.responseURL
-                        };
-                    };
-        
-                    xhr.onload = function() {
-                        const response = createResponse();
-                        if (details.onload) details.onload(response);
-                        resolve(response);
-                    };
-        
-                    xhr.onerror = function() {
-                        const response = createResponse();
-                        if (details.onerror) details.onerror(response);
-                        reject(response);
-                    };
-        
-                    xhr.onabort = function() {
-                        const response = createResponse();
-                        if (details.onabort) details.onabort(response);
-                        reject(response);
-                    };
-        
-                    xhr.ontimeout = function() {
-                        const response = createResponse();
-                        if (details.ontimeout) details.ontimeout(response);
-                        reject(response);
-                    };
-        
-                    if (details.onprogress) {
-                        xhr.onprogress = function(e) { 
-                            details.onprogress(e); 
-                        };
-                    }
-        
-                    xhr.send(details.data || null);
-            
-                    // For compatibility with code that expects a return value with abort method
-                    return { 
-                        abort: function() { 
-                            xhr.abort(); 
-                            reject({aborted: true});
-                        } 
-                    };
-                });
-            };
-            
-            window.GM_notification = function(details, ondone) {
-                if (typeof details === 'string') {
-                    details = { text: details };
-                }
-
-                const notificationDiv = document.createElement('div');
-                notificationDiv.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    max-width: 300px;
-                    background-color: #333;
-                    color: white;
-                    padding: 10px 15px;
-                    border-radius: 5px;
-                    z-index: 9999;
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-                    transition: opacity 0.3s;
-                    opacity: 0;
-                `;
-
-                let notificationHTML = '';
-                if (details.title) {
-                    notificationHTML += `<div style="font-weight: bold; margin-bottom: 5px;">{"${'$'}"}{details.title}</div>`;
-                }
-                notificationHTML += `<div>{"${'$'}"}{details.text || ''}</div>`;
-
-                if (details.image) {
-                    notificationHTML = `<div style="display: flex; align-items: center;">
-                        <img src="{"${'$'}"}{details.image}" style="max-width: 50px; max-height: 50px; margin-right: 10px;">
-                        <div>{"${'$'}"}{notificationHTML}</div>
-                    </div>`;
-                }
-
-                notificationDiv.innerHTML = notificationHTML;
-                document.body.appendChild(notificationDiv);
-
-                setTimeout(() => {
-                    notificationDiv.style.opacity = '1';
-                }, 10);
-
-                if (details.onclick) {
-                    notificationDiv.style.cursor = 'pointer';
-                    notificationDiv.addEventListener('click', () => {
-                        details.onclick();
-                        if (details.clickToClose !== false) {
-                            document.body.removeChild(notificationDiv);
-                        }
-                    });
-                }
-
-                const timeout = details.timeout || 5000;
-                setTimeout(() => {
-                    notificationDiv.style.opacity = '0';
-                    setTimeout(() => {
-                        if (document.body.contains(notificationDiv)) {
-                            document.body.removeChild(notificationDiv);
-                            if (typeof ondone === 'function') {
-                                ondone();
-                            }
-                        }
-                    }, 300);
-                }, timeout);
-
-                return function() {
-                    if (document.body.contains(notificationDiv)) {
-                        document.body.removeChild(notificationDiv);
-                        if (typeof ondone === 'function') {
-                            ondone();
-                        }
-                    }
-                };
-            };
-            
-            // Create the GM object and attach the functions            
-            window.GM = {
-                setValue: GM_setValue,
-                getValue: GM_getValue,
-                addStyle: GM_addStyle,
-                xmlHttpRequest: function(details) {
-                    return window.GM_xmlhttpRequest(details);
-                },
-                notification: GM_notification
-            };
-
-            console.log('Greasemonkey API has been initialized with notification support');
-        })();
-    """.trimIndent()
-
-        webView.evaluateJavascript(gmFunctions, null)
     }
 
 

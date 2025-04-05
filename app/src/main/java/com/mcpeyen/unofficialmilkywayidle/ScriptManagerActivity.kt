@@ -21,11 +21,11 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 
 class ScriptManagerActivity : AppCompatActivity() {
-    private var scriptManager: ScriptManager? = null
+    private var userScriptManager: UserScriptManager? = null
     private var recyclerView: RecyclerView? = null
     private var adapter: ScriptAdapter? = null
-    private val scripts: MutableList<ScriptManager.ScriptInfo> =
-        ArrayList<ScriptManager.ScriptInfo>()
+    private val scripts: MutableList<UserScriptManager.ScriptInfo> =
+        ArrayList<UserScriptManager.ScriptInfo>()
 
     protected override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,7 +37,7 @@ class ScriptManagerActivity : AppCompatActivity() {
         getSupportActionBar()!!.setDisplayHomeAsUpEnabled(true)
         getSupportActionBar()!!.setTitle("Script Manager")
 
-        scriptManager = ScriptManager(this)
+        userScriptManager = UserScriptManager(this)
 
         recyclerView = findViewById(R.id.recycler_view)
         recyclerView!!.setLayoutManager(LinearLayoutManager(this))
@@ -55,7 +55,7 @@ class ScriptManagerActivity : AppCompatActivity() {
 
 
         // Update all scripts when opening the manager
-        scriptManager!!.updateAllScripts { this.loadScripts() }
+        userScriptManager!!.updateAllScripts { this.loadScripts() }
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -68,7 +68,7 @@ class ScriptManagerActivity : AppCompatActivity() {
 
     private fun loadScripts() {
         scripts.clear()
-        scripts.addAll(scriptManager!!.allScripts())
+        scripts.addAll(userScriptManager!!.allScripts())
         adapter!!.notifyDataSetChanged()
     }
 
@@ -134,7 +134,7 @@ class ScriptManagerActivity : AppCompatActivity() {
                 "Downloading script...",
                 Toast.LENGTH_SHORT
             ).show()
-            scriptManager!!.addScriptFromUrl(name, modifiedUrl, enabled, autoUpdate) { success ->
+            userScriptManager!!.addScriptFromUrl(name, modifiedUrl, enabled, autoUpdate) { success ->
                 if (success) {
                     Toast.makeText(
                         this@ScriptManagerActivity,
@@ -185,7 +185,7 @@ class ScriptManagerActivity : AppCompatActivity() {
                 ).show()
                 return@setOnClickListener
             }
-            scriptManager!!.addCustomScript(name, content, enabled) { success ->
+            userScriptManager!!.addCustomScript(name, content, enabled) { success ->
                 if (success) {
                     Toast.makeText(
                         this@ScriptManagerActivity,
@@ -205,7 +205,7 @@ class ScriptManagerActivity : AppCompatActivity() {
         }
     }
 
-    private fun showEditScriptDialog(script: ScriptManager.ScriptInfo) {
+    private fun showEditScriptDialog(script: UserScriptManager.ScriptInfo) {
         if (script.isCustom) {
             showEditCustomScriptDialog(script)
         } else {
@@ -213,7 +213,7 @@ class ScriptManagerActivity : AppCompatActivity() {
         }
     }
 
-    private fun showEditUrlScriptDialog(script: ScriptManager.ScriptInfo) {
+    private fun showEditUrlScriptDialog(script: UserScriptManager.ScriptInfo) {
         val builder = AlertDialog.Builder(this)
         val view: View = getLayoutInflater().inflate(R.layout.dialog_add_script_url, null)
 
@@ -240,7 +240,7 @@ class ScriptManagerActivity : AppCompatActivity() {
                     .setTitle("Confirm Delete")
                     .setMessage("Are you sure you want to delete this script?")
                     .setPositiveButton("Yes") { d: DialogInterface?, which: Int ->
-                        scriptManager!!.removeScript(script.filename)
+                        userScriptManager!!.removeScript(script.filename)
                         loadScripts()
                         Toast.makeText(
                             this@ScriptManagerActivity,
@@ -272,8 +272,8 @@ class ScriptManagerActivity : AppCompatActivity() {
 
 
             // Delete old script and add new one with updated info
-            scriptManager!!.removeScript(script.filename)
-            scriptManager!!.addScriptFromUrl(name, url, enabled, autoUpdate) { success ->
+            userScriptManager!!.removeScript(script.filename)
+            userScriptManager!!.addScriptFromUrl(name, url, enabled, autoUpdate) { success ->
                 if (success) {
                     Toast.makeText(
                         this@ScriptManagerActivity,
@@ -293,7 +293,7 @@ class ScriptManagerActivity : AppCompatActivity() {
         }
     }
 
-    private fun showEditCustomScriptDialog(script: ScriptManager.ScriptInfo) {
+    private fun showEditCustomScriptDialog(script: UserScriptManager.ScriptInfo) {
         val builder = AlertDialog.Builder(this)
         val view: View = getLayoutInflater().inflate(R.layout.dialog_add_custom_script, null)
 
@@ -302,7 +302,7 @@ class ScriptManagerActivity : AppCompatActivity() {
         val enabledCheckbox = view.findViewById<CheckBox>(R.id.script_enabled)
 
         nameInput.setText(script.name)
-        contentInput.setText(scriptManager!!.loadScriptContent(script.filename))
+        contentInput.setText(userScriptManager!!.loadScriptContent(script.filename))
         enabledCheckbox.isChecked = script.isEnabled
 
         builder.setView(view)
@@ -318,7 +318,7 @@ class ScriptManagerActivity : AppCompatActivity() {
                     .setTitle("Confirm Delete")
                     .setMessage("Are you sure you want to delete this script?")
                     .setPositiveButton("Yes") { d: DialogInterface?, which: Int ->
-                        scriptManager!!.removeScript(script.filename)
+                        userScriptManager!!.removeScript(script.filename)
                         loadScripts()
                         Toast.makeText(
                             this@ScriptManagerActivity,
@@ -349,8 +349,8 @@ class ScriptManagerActivity : AppCompatActivity() {
 
 
             // Delete old script and add new one with updated info
-            scriptManager!!.removeScript(script.filename)
-            scriptManager!!.addCustomScript(name, content, enabled) { success ->
+            userScriptManager!!.removeScript(script.filename)
+            userScriptManager!!.addCustomScript(name, content, enabled) { success ->
                 if (success) {
                     Toast.makeText(
                         this@ScriptManagerActivity,
@@ -382,9 +382,9 @@ class ScriptManagerActivity : AppCompatActivity() {
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val script: ScriptManager.ScriptInfo = scripts[position]
+            val script: UserScriptManager.ScriptInfo = scripts[position]
 
-            holder.nameText.setText(script.name)
+            holder.nameText.text = script.name
             holder.typeText.text = if (script.isCustom) "Custom Script" else "URL Script"
 
             if (script.isCustom) {
@@ -393,20 +393,20 @@ class ScriptManagerActivity : AppCompatActivity() {
             } else {
                 holder.urlText.visibility = View.VISIBLE
                 holder.autoUpdateSwitch.visibility = View.VISIBLE
-                holder.urlText.setText(script.url)
+                holder.urlText.text = script.url
                 holder.autoUpdateSwitch.isChecked = script.isAutoUpdate
             }
 
             holder.enabledSwitch.isChecked = script.isEnabled
 
             holder.enabledSwitch.setOnCheckedChangeListener { buttonView: CompoundButton?, isChecked: Boolean ->
-                scriptManager!!.setScriptEnabled(script.filename, isChecked)
+                userScriptManager!!.setScriptEnabled(script.filename, isChecked)
             }
 
             holder.autoUpdateSwitch.setOnCheckedChangeListener { buttonView: CompoundButton, isChecked: Boolean ->
                 // We'll need to update the script info and save it
-                scriptManager!!.removeScript(script.filename)
-                scriptManager!!.addScriptFromUrl(
+                userScriptManager!!.removeScript(script.filename)
+                userScriptManager!!.addScriptFromUrl(
                     script.name, script.url,
                     script.isEnabled, isChecked
                 ) { success ->
