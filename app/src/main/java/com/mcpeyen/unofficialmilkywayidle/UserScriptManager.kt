@@ -29,51 +29,25 @@ class UserScriptManager(private val context: Context) {
         initializeScriptsDirectory()
     }
 
-    private fun initializeScriptsDirectory() {
-        val scriptsDir = File(context.filesDir, SCRIPTS_DIR)
-        if (!scriptsDir.exists()) {
-            scriptsDir.mkdir()
-        }
-
-        // Create initial config file if it doesn't exist
-        val configFile = File(context.filesDir, SCRIPTS_CONFIG)
-        if (!configFile.exists()) {
+    suspend fun getUpdateScriptCount(): Int {
+        return withContext(Dispatchers.IO) {
             try {
-                // Initialize with default MWITools script
-                val scripts = JSONArray()
+                val config = loadConfig()
+                val scripts = config.getJSONArray("scripts")
 
-                val mwiDependencies = JSONObject()
-                mwiDependencies.put("name", "MWITools-Dependencies")
-                mwiDependencies.put(
-                    "url",
-                    "https://raw.githubusercontent.com/YangLeda/Userscripts-For-MilkyWayIdle/refs/heads/main/MWITools%20addon%20for%20Steam%20version.js"
-                )
-                mwiDependencies.put("filename", "mwitools_dependencies.js")
-                mwiDependencies.put("enabled", false)
-                mwiDependencies.put("lastUpdated", 0)
-                mwiDependencies.put("autoUpdate", false)
-                scripts.put(mwiDependencies)
+                var scriptsToUpdate = 0
 
-                val mwitools = JSONObject()
-                mwitools.put("name", "MWITools")
-                mwitools.put(
-                    "url",
-                    "https://greasyfork.org/en/scripts/494467-mwitools/code/script.user.js"
-                )
-                mwitools.put("filename", "mwitools.js")
-                mwitools.put("enabled", false)
-                mwitools.put("lastUpdated", 0)
-                mwitools.put("autoUpdate", false)
-                scripts.put(mwitools)
+                for (i in 0..<scripts.length()) {
+                    val script = scripts.getJSONObject(i)
+                    if (script.getBoolean("autoUpdate") && script.getBoolean("enabled")) {
+                        scriptsToUpdate += 1
+                    }
+                }
 
-                val config = JSONObject()
-                config.put("scripts", scripts)
-
-                val fos = FileOutputStream(configFile)
-                fos.write(config.toString().toByteArray())
-                fos.close()
+                scriptsToUpdate
             } catch (e: Exception) {
-                Log.e(TAG, "Error creating initial config", e)
+                Log.e(TAG, "Error updating scripts", e)
+                0
             }
         }
     }
@@ -86,7 +60,7 @@ class UserScriptManager(private val context: Context) {
 
                 for (i in 0..<scripts.length()) {
                     val script = scripts.getJSONObject(i)
-                    if (script.getBoolean("autoUpdate")) {
+                    if (script.getBoolean("autoUpdate") && script.getBoolean("enabled")) {
                         val lastUpdated = script.getLong("lastUpdated")
                         val currentTime = System.currentTimeMillis()
 
@@ -238,45 +212,6 @@ class UserScriptManager(private val context: Context) {
         }
     }
 
-    private fun downloadScript(scriptUrl: String, filename: String): Boolean {
-        var connection: HttpURLConnection? = null
-        try {
-            val url = URL(scriptUrl)
-            connection = url.openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
-            connection.connectTimeout = 15000
-            connection.readTimeout = 15000
-            connection.connect()
-
-            val responseCode = connection.responseCode
-            if (responseCode != HttpURLConnection.HTTP_OK) {
-                Log.e(
-                    TAG,
-                    "Failed to download script: $responseCode"
-                )
-                return false
-            }
-
-            val inputStream = connection.inputStream
-            val file = File(File(context.filesDir, SCRIPTS_DIR), filename)
-
-            val outputStream = FileOutputStream(file)
-            val buffer = ByteArray(1024)
-            var length: Int
-            while ((inputStream.read(buffer).also { length = it }) > 0) {
-                outputStream.write(buffer, 0, length)
-            }
-            outputStream.close()
-            inputStream.close()
-
-            return true
-        } catch (e: Exception) {
-            Log.e(TAG, "Error downloading script", e)
-            return false
-        } finally {
-            connection?.disconnect()
-        }
-    }
 
     fun loadScriptContent(filename: String): String {
         try {
@@ -390,6 +325,94 @@ class UserScriptManager(private val context: Context) {
         }
     }
 
+    private fun initializeScriptsDirectory() {
+        val scriptsDir = File(context.filesDir, SCRIPTS_DIR)
+        if (!scriptsDir.exists()) {
+            scriptsDir.mkdir()
+        }
+
+        // Create initial config file if it doesn't exist
+        val configFile = File(context.filesDir, SCRIPTS_CONFIG)
+        if (!configFile.exists()) {
+            try {
+                // Initialize with default MWITools script
+                val scripts = JSONArray()
+
+                val mwiDependencies = JSONObject()
+                mwiDependencies.put("name", "MWITools-Dependencies")
+                mwiDependencies.put(
+                    "url",
+                    "https://raw.githubusercontent.com/YangLeda/Userscripts-For-MilkyWayIdle/refs/heads/main/MWITools%20addon%20for%20Steam%20version.js"
+                )
+                mwiDependencies.put("filename", "mwitools_dependencies.js")
+                mwiDependencies.put("enabled", false)
+                mwiDependencies.put("lastUpdated", 0)
+                mwiDependencies.put("autoUpdate", false)
+                scripts.put(mwiDependencies)
+
+                val mwitools = JSONObject()
+                mwitools.put("name", "MWITools")
+                mwitools.put(
+                    "url",
+                    "https://greasyfork.org/en/scripts/494467-mwitools/code/script.user.js"
+                )
+                mwitools.put("filename", "mwitools.js")
+                mwitools.put("enabled", false)
+                mwitools.put("lastUpdated", 0)
+                mwitools.put("autoUpdate", false)
+                scripts.put(mwitools)
+
+                val config = JSONObject()
+                config.put("scripts", scripts)
+
+                val fos = FileOutputStream(configFile)
+                fos.write(config.toString().toByteArray())
+                fos.close()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error creating initial config", e)
+            }
+        }
+    }
+
+    private fun downloadScript(scriptUrl: String, filename: String): Boolean {
+        var connection: HttpURLConnection? = null
+        try {
+            val url = URL(scriptUrl)
+            connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 15000
+            connection.readTimeout = 15000
+            connection.connect()
+
+            val responseCode = connection.responseCode
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                Log.e(
+                    TAG,
+                    "Failed to download script: $responseCode"
+                )
+                return false
+            }
+
+            val inputStream = connection.inputStream
+            val file = File(File(context.filesDir, SCRIPTS_DIR), filename)
+
+            val outputStream = FileOutputStream(file)
+            val buffer = ByteArray(1024)
+            var length: Int
+            while ((inputStream.read(buffer).also { length = it }) > 0) {
+                outputStream.write(buffer, 0, length)
+            }
+            outputStream.close()
+            inputStream.close()
+
+            return true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error downloading script", e)
+            return false
+        } finally {
+            connection?.disconnect()
+        }
+    }
 
     @Throws(JSONException::class, IOException::class)
     private fun loadConfig(): JSONObject {

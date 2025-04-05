@@ -27,15 +27,15 @@ class ScriptManagerActivity : AppCompatActivity() {
     private val scripts: MutableList<UserScriptManager.ScriptInfo> =
         ArrayList<UserScriptManager.ScriptInfo>()
 
-    protected override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         setContentView(R.layout.activity_script_manager)
 
         val toolbar: Toolbar = findViewById(R.id.toolbar)
         setSupportActionBar(toolbar)
-        getSupportActionBar()!!.setDisplayHomeAsUpEnabled(true)
-        getSupportActionBar()!!.setTitle("Script Manager")
+        supportActionBar!!.setDisplayHomeAsUpEnabled(true)
+        supportActionBar!!.title = "Script Manager"
 
         userScriptManager = UserScriptManager(this)
 
@@ -74,7 +74,7 @@ class ScriptManagerActivity : AppCompatActivity() {
 
     private fun showAddUrlDialog() {
         val builder = AlertDialog.Builder(this)
-        val view: View = getLayoutInflater().inflate(R.layout.dialog_add_script_url, null)
+        val view: View = layoutInflater.inflate(R.layout.dialog_add_script_url, null)
 
         val nameInput = view.findViewById<EditText>(R.id.script_name)
         val urlInput = view.findViewById<EditText>(R.id.script_url)
@@ -156,7 +156,7 @@ class ScriptManagerActivity : AppCompatActivity() {
 
     private fun showAddCustomDialog() {
         val builder = AlertDialog.Builder(this)
-        val view: View = getLayoutInflater().inflate(R.layout.dialog_add_custom_script, null)
+        val view: View = layoutInflater.inflate(R.layout.dialog_add_custom_script, null)
 
         val nameInput = view.findViewById<EditText>(R.id.script_name)
         val contentInput = view.findViewById<EditText>(R.id.script_content)
@@ -215,7 +215,7 @@ class ScriptManagerActivity : AppCompatActivity() {
 
     private fun showEditUrlScriptDialog(script: UserScriptManager.ScriptInfo) {
         val builder = AlertDialog.Builder(this)
-        val view: View = getLayoutInflater().inflate(R.layout.dialog_add_script_url, null)
+        val view: View = layoutInflater.inflate(R.layout.dialog_add_script_url, null)
 
         val nameInput = view.findViewById<EditText>(R.id.script_name)
         val urlInput = view.findViewById<EditText>(R.id.script_url)
@@ -295,7 +295,7 @@ class ScriptManagerActivity : AppCompatActivity() {
 
     private fun showEditCustomScriptDialog(script: UserScriptManager.ScriptInfo) {
         val builder = AlertDialog.Builder(this)
-        val view: View = getLayoutInflater().inflate(R.layout.dialog_add_custom_script, null)
+        val view: View = layoutInflater.inflate(R.layout.dialog_add_custom_script, null)
 
         val nameInput = view.findViewById<EditText>(R.id.script_name)
         val contentInput = view.findViewById<EditText>(R.id.script_content)

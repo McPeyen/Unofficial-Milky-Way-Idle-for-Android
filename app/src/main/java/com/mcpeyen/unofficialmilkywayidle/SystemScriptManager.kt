@@ -75,7 +75,6 @@ class SystemScriptManager(private val context: Context, private val webView: Web
         ContextCompat.startActivity(context, intent, null) // Null for options
     }
 
-
     private inner class WebAppInterface {
         @JavascriptInterface
         fun openScriptManager() {
@@ -83,7 +82,6 @@ class SystemScriptManager(private val context: Context, private val webView: Web
             this@SystemScriptManager.openScriptManager()
         }
     }
-
 
     fun disableLongClick() {
         val jsCode = """

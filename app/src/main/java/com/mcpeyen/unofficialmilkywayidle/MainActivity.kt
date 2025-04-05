@@ -8,6 +8,8 @@ import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 
 class MainActivity : AppCompatActivity() {
@@ -21,29 +23,23 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         webView = findViewById(R.id.webview)
-        webView!!.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView, url: String) {
-                super.onPageFinished(view, url)
-                // Inject scripts when page is loaded
-                injectScripts()
-            }
-        }
-
-        // Configure WebView settings
         val webSettings = webView!!.settings
         webSettings.javaScriptEnabled = true
         webSettings.domStorageEnabled = true
         webSettings.cacheMode = WebSettings.LOAD_DEFAULT
-
         userScriptManager = UserScriptManager(this)
         systemScriptManager = SystemScriptManager(this, webView!!)
 
-        // Load Milky Way Idle website
+        webView!!.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView, url: String) {
+                super.onPageFinished(view, url)
+                injectScripts()
+            }
+        }
+
         webView!!.loadUrl("https://www.milkywayidle.com/")
 
-        // Check for script updates
         updateScripts()
-        injectScripts()
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -58,15 +54,23 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun updateScripts() {
-        Toast.makeText(this, "Updating scripts...", Toast.LENGTH_SHORT).show()
-        userScriptManager!!.updateAllScripts {
-            runOnUiThread {
-                Toast.makeText(
-                    this@MainActivity,
-                    "Scripts updated",
-                    Toast.LENGTH_SHORT
-                )
-                    .show()
+        lifecycleScope.launch {
+            val updateCount = userScriptManager!!.getUpdateScriptCount()
+            if (updateCount > 0) {
+                Toast.makeText(this@MainActivity, "Updating $updateCount scripts...", Toast.LENGTH_SHORT).show()
+
+                userScriptManager!!.updateAllScripts {
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Scripts updated",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    injectScripts()
+                }
+            } else {
+                injectScripts()
             }
         }
     }
