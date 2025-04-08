@@ -6,66 +6,56 @@ import android.webkit.WebView
 class SystemScriptManager(private val context: Context, private val webView: WebView) {
     fun injectRefreshButton() {
         val jsCode = """
-        const injectRefreshButton = () => {
+        const mcRefresh = () => {
             const targetNode = document.querySelector("div.SettingsPanel_gameTab__n2hAG");
-            const refreshButtonId = "refresh-page-button";
-            
-            if (targetNode && !document.getElementById(refreshButtonId)) {
-                // Create refresh button container
-                let refreshContainer = document.createElement("div");
-                refreshContainer.setAttribute("data-refresh-button", "true");
-                refreshContainer.style.display = "flex";
-                refreshContainer.style.alignItems = "center";
-                refreshContainer.style.margin = "10px 0";
+            if (targetNode) {
+                const existingButton = targetNode.querySelector('[data-refresh-button="true"]');            
+                if (!existingButton) {
+                    let refreshContainer = document.createElement("div");
+                    refreshContainer.setAttribute("data-refresh-button", "true");
+                    refreshContainer.style.display = "flex";
+                    refreshContainer.style.alignItems = "center";
+                    refreshContainer.style.margin = "0px 0";
                 
-                let label = document.createElement("span");
-                label.innerHTML = "Reload: ";
-                label.style.marginRight = "10px";
-                
-                // Create refresh button
-                let refreshButton = document.createElement("button");
-                refreshButton.id = refreshButtonId;
-                refreshButton.style.backgroundColor = "#4357af";
-                refreshButton.style.color = "white";
-                refreshButton.style.border = "none";
-                refreshButton.style.borderRadius = "4px";
-                refreshButton.style.padding = "5px 10px";
-                refreshButton.style.cursor = "pointer";
-                refreshButton.style.display = "flex";
-                refreshButton.style.alignItems = "center";
-                refreshButton.style.justifyContent = "center";
-                
-                // Add refresh icon
-                refreshButton.innerHTML = `
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
-                        <path d="M23 4v6h-6"></path>
-                        <path d="M1 20v-6h6"></path>
-                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path>
-                        <path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                    </svg>
-                    Reload Game
-                `;
-                
-                // Add click event listener to call refreshPage()
-                refreshButton.addEventListener("click", function() {
-                    window.Android.refreshPage();
-                });
-                
-                // Add to the page
-                refreshContainer.appendChild(label);
-                refreshContainer.appendChild(refreshButton);
-                targetNode.insertAdjacentElement("beforeend", refreshContainer);
+                    let label = document.createElement("span");
+                    label.innerHTML = "Reload: ";
+                    label.style.marginRight = "10px";
+
+                    let refreshButton = document.createElement("button");
+                    refreshButton.style.backgroundColor = "#4357af";
+                    refreshButton.style.color = "white";
+                    refreshButton.style.border = "none";
+                    refreshButton.style.borderRadius = "4px";
+                    refreshButton.style.padding = "5px 10px";
+                    refreshButton.style.cursor = "pointer";
+                    refreshButton.style.display = "flex";
+                    refreshButton.style.alignItems = "center";
+                    refreshButton.style.justifyContent = "center";
+
+                    refreshButton.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
+                            <path d="M23 4v6h-6"></path>
+                            <path d="M1 20v-6h6"></path>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path>
+                            <path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                        Reload Game
+                    `;
+
+                    refreshButton.addEventListener("click", function() {
+                        window.Android.refreshPage();
+                    });
+
+                    refreshContainer.appendChild(label);
+                    refreshContainer.appendChild(refreshButton);
+                    targetNode.insertAdjacentElement("beforeend", refreshContainer);
+                }
             }
-            
-            // Check again after a delay if not found
-            if (!document.getElementById(refreshButtonId)) {
-                setTimeout(injectRefreshButton, 500);
-            }
+            setTimeout(mcRefresh, 500);
         };
         
-        injectRefreshButton();
+        mcRefresh();
         """.trimIndent()
-
         webView.evaluateJavascript(jsCode, null)
     }
 
@@ -76,19 +66,16 @@ class SystemScriptManager(private val context: Context, private val webView: Web
             if (targetNode) {
                 const existingButton = targetNode.querySelector('[data-script-manager="true"]');
                 if (!existingButton) {
-                    // Create container div to hold text and button
                     let container = document.createElement("div");
                     container.setAttribute("data-script-manager", "true"); // Add a data attribute to identify our element
                     container.style.display = "flex";
                     container.style.alignItems = "center";
-                    container.style.margin = "10px 0";
-                
-                    // Create text label
+                    container.style.margin = "0px 0";
+               
                     let label = document.createElement("span");
                     label.innerHTML = "Open Script Manager: ";
                     label.style.marginRight = "10px";
-            
-                    // Create button with icon
+          
                     let button = document.createElement("button");
                     button.style.backgroundColor = "#4357af";
                     button.style.color = "white";
@@ -99,8 +86,7 @@ class SystemScriptManager(private val context: Context, private val webView: Web
                     button.style.display = "flex";
                     button.style.alignItems = "center";
                     button.style.justifyContent = "center";
-            
-                    // Add icon (using a simple SVG code icon)
+
                     button.innerHTML = `
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -111,13 +97,11 @@ class SystemScriptManager(private val context: Context, private val webView: Web
                         </svg>
                         Script Manager
                     `;
-            
-                    // Add click event listener to call openScriptManager()
+
                     button.addEventListener("click", function() {
                         window.Android.openScriptManager();
                     });
-            
-                    // Assemble and add to the page
+
                     container.appendChild(label);
                     container.appendChild(button);
                     targetNode.insertAdjacentElement("beforeend", container);            
@@ -126,7 +110,7 @@ class SystemScriptManager(private val context: Context, private val webView: Web
             setTimeout(mcSettings, 500);            
         };        
         mcSettings();
-    """.trimIndent()
+        """.trimIndent()
 
         webView.evaluateJavascript(jsCode, null)
     }
@@ -135,21 +119,16 @@ class SystemScriptManager(private val context: Context, private val webView: Web
     fun disableLongClick() {
         val jsCode = """
         const mcLongClickDisable = () => {
-            // First disable long-click events on the entire document
             document.addEventListener('contextmenu', (e) => {
-                // Check if the clicked element is inside the TabsComponent_tabPanelsContainer
                 const container = document.querySelector("div.Chat_tabsComponentContainer__3ZoKe");
                 if (container && container.contains(e.target)) {
-                    // Allow default action for elements in the container
                     return true;
                 } else {
-                    // Prevent default context menu for all other elements
                     e.preventDefault();
                     return false;
                 }
             }, true);
-        
-            // Also disable long touch events which might trigger selection on mobile
+
             document.addEventListener('touchstart', (e) => {
                 const container = document.querySelector("div.Chat_tabsComponentContainer__3ZoKe");
                 if (!(container && container.contains(e.target))) {
@@ -158,8 +137,7 @@ class SystemScriptManager(private val context: Context, private val webView: Web
                 }
             }, true);
         };
-    
-        // Execute the function immediately
+
         mcLongClickDisable();
         """.trimIndent()
 
@@ -167,7 +145,7 @@ class SystemScriptManager(private val context: Context, private val webView: Web
     }
 
     fun injectGreasemonkeyAPI() {
-        val gmFunctions = """
+        val jsCode = """
         (function() {
             const gmValues = {};
 
@@ -208,8 +186,7 @@ class SystemScriptManager(private val context: Context, private val webView: Web
                             xhr.setRequestHeader(header, details.headers[header]);
                         }
                     }
-        
-                    // Set responseType if specified
+
                     if (details.responseType) {
                         xhr.responseType = details.responseType;
                     }
@@ -358,6 +335,6 @@ class SystemScriptManager(private val context: Context, private val webView: Web
         })();
         """.trimIndent()
 
-        webView.evaluateJavascript(gmFunctions, null)
+        webView.evaluateJavascript(jsCode, null)
     }
 }

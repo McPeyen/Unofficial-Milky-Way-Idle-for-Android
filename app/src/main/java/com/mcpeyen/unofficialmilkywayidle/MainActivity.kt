@@ -48,7 +48,7 @@ class MainActivity : AppCompatActivity() {
                 if (webView!!.canGoBack()) {
                     webView!!.goBack()
                 } else {
-                    finish() // Close the activity
+                    finish()
                 }
             }
         })
@@ -62,13 +62,11 @@ class MainActivity : AppCompatActivity() {
     private inner class WebAppInterface {
         @JavascriptInterface
         fun openScriptManager() {
-            // Call your existing openScriptManager method
             this@MainActivity.openScriptManager()
         }
 
         @JavascriptInterface
         fun refreshPage() {
-            // Call your existing openScriptManager method
             this@MainActivity.refreshPage()
         }
     }
@@ -92,17 +90,17 @@ class MainActivity : AppCompatActivity() {
             if (enabledCount > 0) {
                 userScriptManager!!.updateEnabledScripts {
                     runOnUiThread {
-                        systemScriptManager!!.injectGreasemonkeyAPI()
-                        systemScriptManager!!.injectRefreshButton()
-                        systemScriptManager!!.injectSettings()
-                        systemScriptManager!!.disableLongClick()
-                        userScriptManager!!.injectEnabledScripts(webView!!)
-
                         Toast.makeText(
                             this@MainActivity,
                             "Injecting $enabledCount script(s)...",
                             Toast.LENGTH_SHORT
                         ).show()
+
+                        systemScriptManager!!.injectGreasemonkeyAPI()
+                        systemScriptManager!!.injectRefreshButton()
+                        systemScriptManager!!.injectSettings()
+                        systemScriptManager!!.disableLongClick()
+                        userScriptManager!!.injectEnabledScripts(webView!!)
                     }
                 }
             } else {
