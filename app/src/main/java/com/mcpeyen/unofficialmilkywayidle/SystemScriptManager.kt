@@ -8,6 +8,7 @@ import androidx.core.content.ContextCompat
 
 class SystemScriptManager(private val context: Context, private val webView: WebView) {
     fun injectSettings() {
+
         val jsCode = """
         const mcSettings = () => {
             const targetNode = document.querySelector("div.SettingsPanel_gameTab__n2hAG");
@@ -66,22 +67,10 @@ class SystemScriptManager(private val context: Context, private val webView: Web
         mcSettings();
     """.trimIndent()
 
-        webView.addJavascriptInterface(WebAppInterface(), "Android")
         webView.evaluateJavascript(jsCode, null)
     }
 
-    private fun openScriptManager() {
-        val intent = Intent(context, ScriptManagerActivity::class.java)
-        ContextCompat.startActivity(context, intent, null) // Null for options
-    }
 
-    private inner class WebAppInterface {
-        @JavascriptInterface
-        fun openScriptManager() {
-            // Call your existing openScriptManager method
-            this@SystemScriptManager.openScriptManager()
-        }
-    }
 
     fun disableLongClick() {
         val jsCode = """

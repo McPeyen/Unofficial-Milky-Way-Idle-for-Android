@@ -11,10 +11,8 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
-import java.io.BufferedReader
 import java.io.File
 import java.io.FileOutputStream
-import java.io.FileReader
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -213,20 +211,20 @@ class UserScriptManager(private val context: Context) {
     }
 
 
-    fun loadScriptContent(filename: String): String {
-        try {
-            val file = File(File(context.filesDir, SCRIPTS_DIR), filename)
-            val stringBuilder = StringBuilder()
-            val reader = BufferedReader(FileReader(file))
-            var line: String?
-            while ((reader.readLine().also { line = it }) != null) {
-                stringBuilder.append(line).append('\n')
+    fun loadScriptContent(filename: String): String? {
+        val file = File(File(context.filesDir, SCRIPTS_DIR), filename)
+        if (!file.exists() || !file.isFile) {
+            Log.w(TAG, "Script file does not exist or is not a file: $filename")
+            return null
+        }
+
+        return try {
+            file.bufferedReader().use { reader ->
+                reader.readText()
             }
-            reader.close()
-            return stringBuilder.toString()
         } catch (e: IOException) {
-            Log.e(TAG, "Error loading script content", e)
-            return ""
+            Log.e(TAG, "Error loading script content for $filename", e)
+            null
         }
     }
 
@@ -306,17 +304,20 @@ class UserScriptManager(private val context: Context) {
     fun injectEnabledScripts(webView: WebView) {
         try {
             val config = loadConfig()
-            val scripts = config.getJSONArray("scripts")
+            val scripts = config.optJSONArray("scripts") ?: return
 
-            for (i in 0..<scripts.length()) {
-                val script = scripts.getJSONObject(i)
-                if (script.getBoolean("enabled")) {
-                    val filename = script.getString("filename")
-                    Log.i("Starting Script Load", filename)
-                    val content = loadScriptContent(filename)
-                    if (!content.isEmpty()) {
-                        webView.evaluateJavascript(content, null)
-                        Log.i("Finished Script Load", filename)
+            for (i in 0 until scripts.length()) {
+                val script = scripts.optJSONObject(i) ?: continue
+                if (script.optBoolean("enabled", false)) {
+                    val filename = script.optString("filename")
+                    if (filename.isNotEmpty()) {
+                        Log.d(TAG, "Starting Script Load: $filename")
+                        loadScriptContent(filename)?.let { content ->
+                            webView.evaluateJavascript(content) { result ->
+                                Log.d(TAG, "Script execution result for $filename: $result")
+                            }
+                            Log.d(TAG, "Finished Script Load: $filename")
+                        } ?: Log.w(TAG, "Script content was empty: $filename")
                     }
                 }
             }
@@ -347,7 +348,7 @@ class UserScriptManager(private val context: Context) {
                 mwiDependencies.put("filename", "mwitools_dependencies.js")
                 mwiDependencies.put("enabled", false)
                 mwiDependencies.put("lastUpdated", 0)
-                mwiDependencies.put("autoUpdate", false)
+                mwiDependencies.put("autoUpdate", true)
                 scripts.put(mwiDependencies)
 
                 val mwitools = JSONObject()
@@ -359,7 +360,7 @@ class UserScriptManager(private val context: Context) {
                 mwitools.put("filename", "mwitools.js")
                 mwitools.put("enabled", false)
                 mwitools.put("lastUpdated", 0)
-                mwitools.put("autoUpdate", false)
+                mwitools.put("autoUpdate", true)
                 scripts.put(mwitools)
 
                 val config = JSONObject()
@@ -376,55 +377,81 @@ class UserScriptManager(private val context: Context) {
 
     private fun downloadScript(scriptUrl: String, filename: String): Boolean {
         var connection: HttpURLConnection? = null
-        try {
-            val url = URL(scriptUrl)
-            connection = url.openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
-            connection.connectTimeout = 15000
-            connection.readTimeout = 15000
-            connection.connect()
 
+        return try {
+            val file = File(File(context.filesDir, SCRIPTS_DIR), filename)
+
+            // Setup connection
+            val url = URL(scriptUrl)
+            connection = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 15000
+                readTimeout = 15000
+                setRequestProperty("Accept", "*/*")
+                instanceFollowRedirects = true
+            }
+
+            // Handle response
             val responseCode = connection.responseCode
-            if (responseCode != HttpURLConnection.HTTP_OK) {
-                Log.e(
-                    TAG,
-                    "Failed to download script: $responseCode"
-                )
+            if (responseCode !in 200..299) {
+                Log.e(TAG, "Failed to download script: HTTP $responseCode - ${connection.responseMessage}"                )
                 return false
             }
 
-            val inputStream = connection.inputStream
-            val file = File(File(context.filesDir, SCRIPTS_DIR), filename)
-
-            val outputStream = FileOutputStream(file)
-            val buffer = ByteArray(1024)
-            var length: Int
-            while ((inputStream.read(buffer).also { length = it }) > 0) {
-                outputStream.write(buffer, 0, length)
+            // Get content length for progress tracking (if available)
+            val contentLength = connection.contentLength
+            if (contentLength > 0) {
+                Log.d(TAG, "Downloading script ($contentLength bytes): $filename")
+            } else {
+                Log.d(TAG, "Downloading script (unknown size): $filename")
             }
-            outputStream.close()
-            inputStream.close()
 
-            return true
+            // Use Kotlin's extension functions to handle streams safely
+            connection.inputStream.use { input ->
+                FileOutputStream(file).use { output ->
+                    val buffer = ByteArray(8192) // Larger buffer for better performance
+                    var bytesRead: Int
+                    var totalBytesRead = 0
+
+                    while (input.read(buffer).also { bytesRead = it } != -1) {
+                        output.write(buffer, 0, bytesRead)
+                        totalBytesRead += bytesRead
+                    }
+
+                    Log.d(TAG, "Successfully downloaded script ($totalBytesRead bytes): $filename")
+                }
+            }
+
+            true
+        } catch (e: IOException) {
+            Log.e(TAG, "Network error downloading script $filename: ${e.message}", e)
+            false
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Security error downloading script $filename: ${e.message}", e)
+            false
         } catch (e: Exception) {
-            Log.e(TAG, "Error downloading script", e)
-            return false
+            Log.e(TAG, "Unexpected error downloading script $filename: ${e.message}", e)
+            false
         } finally {
             connection?.disconnect()
         }
     }
 
-    @Throws(JSONException::class, IOException::class)
+    @Throws(JSONException::class)
     private fun loadConfig(): JSONObject {
         val configFile = File(context.filesDir, SCRIPTS_CONFIG)
-        val stringBuilder = StringBuilder()
-        val reader = BufferedReader(FileReader(configFile))
-        var line: String?
-        while ((reader.readLine().also { line = it }) != null) {
-            stringBuilder.append(line)
+        if (!configFile.exists()) {
+            Log.w(TAG, "Config file does not exist: ${configFile.absolutePath}")
+            return JSONObject()
         }
-        reader.close()
-        return JSONObject(stringBuilder.toString())
+
+        return try {
+            val jsonString = configFile.bufferedReader().use { it.readText() }
+            JSONObject(jsonString)
+        } catch (e: IOException) {
+            Log.e(TAG, "Error reading config file", e)
+            JSONObject()
+        }
     }
 
     @Throws(IOException::class)
