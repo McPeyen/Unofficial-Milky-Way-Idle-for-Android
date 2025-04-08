@@ -5,13 +5,11 @@ An unofficial Android client for [Milky Way Idle](https://www.milkywayidle.com/)
 ## Features
 
 - **Custom JavaScript Support**: Run custom scripts to enhance your gameplay experience
-  - Support for both URL-based and inline JavaScript
-  - Auto-update option for URL-based scripts  
+  - Support for both URL-based and inline JavaScript  
  
 - **Script Manager**: Control all of your scripts! Accessed via Settings → Game → Script Manager
   - Enable scripts
   - Disable scripts
-  - Auto-update scripts
   - Delete scripts
   - Install new scripts
 
@@ -24,8 +22,7 @@ An unofficial Android client for [Milky Way Idle](https://www.milkywayidle.com/)
 Download the latest APK release file from this GitHub repository.
 
 ## Support
-Any changes to the scripts (e.g. enabling, disabling, adding a new one) will require an app restart to take effect. Might look into improving this in the future.
-
+Any changes to the scripts (e.g. enabling, disabling, adding a new one) will require a game reload or an app restart to take effect
 Whisper me (*McPeyen*) in game or raise an issue here with any problems.
 
 ---
