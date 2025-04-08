@@ -27,7 +27,7 @@ class UserScriptManager(private val context: Context) {
         initializeScriptsDirectory()
     }
 
-    suspend fun getUpdateScriptCount(): Int {
+    suspend fun getEnabledScriptCount(): Int {
         return withContext(Dispatchers.IO) {
             try {
                 val config = loadConfig()
@@ -37,20 +37,20 @@ class UserScriptManager(private val context: Context) {
 
                 for (i in 0..<scripts.length()) {
                     val script = scripts.getJSONObject(i)
-                    if (script.getBoolean("autoUpdate") && script.getBoolean("enabled")) {
+                    if (script.getBoolean("enabled")) {
                         scriptsToUpdate += 1
                     }
                 }
 
                 scriptsToUpdate
             } catch (e: Exception) {
-                Log.e(TAG, "Error updating scripts", e)
+                Log.e(TAG, "Error getting script count to update", e)
                 0
             }
         }
     }
 
-    fun updateAllScripts(onComplete: Runnable?) {
+    fun updateEnabledScripts(onComplete: Runnable?) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val config = loadConfig()
@@ -58,7 +58,7 @@ class UserScriptManager(private val context: Context) {
 
                 for (i in 0..<scripts.length()) {
                     val script = scripts.getJSONObject(i)
-                    if (script.getBoolean("autoUpdate") && script.getBoolean("enabled")) {
+                    if (script.getBoolean("enabled")) {
                         val lastUpdated = script.getLong("lastUpdated")
                         val currentTime = System.currentTimeMillis()
 
@@ -91,7 +91,6 @@ class UserScriptManager(private val context: Context) {
         name: String,
         url: String,
         enabled: Boolean,
-        autoUpdate: Boolean,
         callback: (Boolean) -> Unit
     ) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -116,7 +115,6 @@ class UserScriptManager(private val context: Context) {
                         if (script.getString("filename") == filename) {
                             script.put("url", url)
                             script.put("enabled", enabled)
-                            script.put("autoUpdate", autoUpdate)
                             script.put("lastUpdated", System.currentTimeMillis())
                             scriptExists = true
                             break
@@ -130,7 +128,6 @@ class UserScriptManager(private val context: Context) {
                         script.put("url", url)
                         script.put("filename", filename)
                         script.put("enabled", enabled)
-                        script.put("autoUpdate", autoUpdate)
                         script.put("lastUpdated", System.currentTimeMillis())
                         scripts.put(script)
                     }
@@ -290,9 +287,8 @@ class UserScriptManager(private val context: Context) {
                 val enabled = script.getBoolean("enabled")
                 val custom = script.optBoolean("custom", false)
                 val url = script.optString("url", "")
-                val autoUpdate = script.optBoolean("autoUpdate", false)
 
-                scriptList.add(ScriptInfo(name, filename, enabled, custom, url, autoUpdate))
+                scriptList.add(ScriptInfo(name, filename, enabled, custom, url))
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error getting all scripts", e)
@@ -348,7 +344,6 @@ class UserScriptManager(private val context: Context) {
                 mwiDependencies.put("filename", "mwitools_dependencies.js")
                 mwiDependencies.put("enabled", false)
                 mwiDependencies.put("lastUpdated", 0)
-                mwiDependencies.put("autoUpdate", true)
                 scripts.put(mwiDependencies)
 
                 val mwitools = JSONObject()
@@ -360,7 +355,6 @@ class UserScriptManager(private val context: Context) {
                 mwitools.put("filename", "mwitools.js")
                 mwitools.put("enabled", false)
                 mwitools.put("lastUpdated", 0)
-                mwitools.put("autoUpdate", true)
                 scripts.put(mwitools)
 
                 val config = JSONObject()
@@ -394,7 +388,10 @@ class UserScriptManager(private val context: Context) {
             // Handle response
             val responseCode = connection.responseCode
             if (responseCode !in 200..299) {
-                Log.e(TAG, "Failed to download script: HTTP $responseCode - ${connection.responseMessage}"                )
+                Log.e(
+                    TAG,
+                    "Failed to download script: HTTP $responseCode - ${connection.responseMessage}"
+                )
                 return false
             }
 
@@ -463,8 +460,11 @@ class UserScriptManager(private val context: Context) {
     }
 
     class ScriptInfo(
-        val name: String, val filename: String, val isEnabled: Boolean, val isCustom: Boolean,
-        val url: String, val isAutoUpdate: Boolean
+        val name: String,
+        val filename: String,
+        val isEnabled: Boolean,
+        val isCustom: Boolean,
+        val url: String
     )
 
     companion object {

@@ -1,14 +1,75 @@
 package com.mcpeyen.unofficialmilkywayidle
 
 import android.content.Context
-import android.content.Intent
-import android.webkit.JavascriptInterface
 import android.webkit.WebView
-import androidx.core.content.ContextCompat
 
 class SystemScriptManager(private val context: Context, private val webView: WebView) {
-    fun injectSettings() {
+    fun injectRefreshButton() {
+        val jsCode = """
+        const injectRefreshButton = () => {
+            const targetNode = document.querySelector("div.SettingsPanel_gameTab__n2hAG");
+            const refreshButtonId = "refresh-page-button";
+            
+            if (targetNode && !document.getElementById(refreshButtonId)) {
+                // Create refresh button container
+                let refreshContainer = document.createElement("div");
+                refreshContainer.setAttribute("data-refresh-button", "true");
+                refreshContainer.style.display = "flex";
+                refreshContainer.style.alignItems = "center";
+                refreshContainer.style.margin = "10px 0";
+                
+                let label = document.createElement("span");
+                label.innerHTML = "Reload: ";
+                label.style.marginRight = "10px";
+                
+                // Create refresh button
+                let refreshButton = document.createElement("button");
+                refreshButton.id = refreshButtonId;
+                refreshButton.style.backgroundColor = "#4357af";
+                refreshButton.style.color = "white";
+                refreshButton.style.border = "none";
+                refreshButton.style.borderRadius = "4px";
+                refreshButton.style.padding = "5px 10px";
+                refreshButton.style.cursor = "pointer";
+                refreshButton.style.display = "flex";
+                refreshButton.style.alignItems = "center";
+                refreshButton.style.justifyContent = "center";
+                
+                // Add refresh icon
+                refreshButton.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
+                        <path d="M23 4v6h-6"></path>
+                        <path d="M1 20v-6h6"></path>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path>
+                        <path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                    Reload Game
+                `;
+                
+                // Add click event listener to call refreshPage()
+                refreshButton.addEventListener("click", function() {
+                    window.Android.refreshPage();
+                });
+                
+                // Add to the page
+                refreshContainer.appendChild(label);
+                refreshContainer.appendChild(refreshButton);
+                targetNode.insertAdjacentElement("beforeend", refreshContainer);
+            }
+            
+            // Check again after a delay if not found
+            if (!document.getElementById(refreshButtonId)) {
+                setTimeout(injectRefreshButton, 500);
+            }
+        };
+        
+        injectRefreshButton();
+        """.trimIndent()
 
+        webView.evaluateJavascript(jsCode, null)
+    }
+
+    fun injectSettings() {
         val jsCode = """
         const mcSettings = () => {
             const targetNode = document.querySelector("div.SettingsPanel_gameTab__n2hAG");
@@ -69,7 +130,6 @@ class SystemScriptManager(private val context: Context, private val webView: Web
 
         webView.evaluateJavascript(jsCode, null)
     }
-
 
 
     fun disableLongClick() {

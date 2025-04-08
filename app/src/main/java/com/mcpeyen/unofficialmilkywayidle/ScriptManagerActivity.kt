@@ -55,7 +55,7 @@ class ScriptManagerActivity : AppCompatActivity() {
 
 
         // Update all scripts when opening the manager
-        userScriptManager!!.updateAllScripts { this.loadScripts() }
+        userScriptManager!!.updateEnabledScripts { this.loadScripts() }
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -79,7 +79,6 @@ class ScriptManagerActivity : AppCompatActivity() {
         val nameInput = view.findViewById<EditText>(R.id.script_name)
         val urlInput = view.findViewById<EditText>(R.id.script_url)
         val enabledCheckbox = view.findViewById<CheckBox>(R.id.script_enabled)
-        val autoUpdateCheckbox = view.findViewById<CheckBox>(R.id.script_auto_update)
 
         builder.setView(view)
             .setTitle("Add Script from URL")
@@ -95,7 +94,6 @@ class ScriptManagerActivity : AppCompatActivity() {
             val name = nameInput.text.toString().trim { it <= ' ' }
             val url = urlInput.text.toString().trim { it <= ' ' }
             val enabled = enabledCheckbox.isChecked
-            val autoUpdate = autoUpdateCheckbox.isChecked
 
             // Pattern for URLs like https://greasyfork.org/{lang}/scripts/{number}-{scriptname}
             val baseUrlPattern =
@@ -134,7 +132,7 @@ class ScriptManagerActivity : AppCompatActivity() {
                 "Downloading script...",
                 Toast.LENGTH_SHORT
             ).show()
-            userScriptManager!!.addScriptFromUrl(name, modifiedUrl, enabled, autoUpdate) { success ->
+            userScriptManager!!.addScriptFromUrl(name, modifiedUrl, enabled) { success ->
                 if (success) {
                     Toast.makeText(
                         this@ScriptManagerActivity,
@@ -220,12 +218,10 @@ class ScriptManagerActivity : AppCompatActivity() {
         val nameInput = view.findViewById<EditText>(R.id.script_name)
         val urlInput = view.findViewById<EditText>(R.id.script_url)
         val enabledCheckbox = view.findViewById<CheckBox>(R.id.script_enabled)
-        val autoUpdateCheckbox = view.findViewById<CheckBox>(R.id.script_auto_update)
 
         nameInput.setText(script.name)
         urlInput.setText(script.url)
         enabledCheckbox.isChecked = script.isEnabled
-        autoUpdateCheckbox.isChecked = script.isAutoUpdate
 
         builder.setView(view)
             .setTitle("Edit Script")
@@ -259,7 +255,6 @@ class ScriptManagerActivity : AppCompatActivity() {
             val name = nameInput.text.toString().trim { it <= ' ' }
             val url = urlInput.text.toString().trim { it <= ' ' }
             val enabled = enabledCheckbox.isChecked
-            val autoUpdate = autoUpdateCheckbox.isChecked
 
             if (name.isEmpty() || url.isEmpty()) {
                 Toast.makeText(
@@ -273,7 +268,7 @@ class ScriptManagerActivity : AppCompatActivity() {
 
             // Delete old script and add new one with updated info
             userScriptManager!!.removeScript(script.filename)
-            userScriptManager!!.addScriptFromUrl(name, url, enabled, autoUpdate) { success ->
+            userScriptManager!!.addScriptFromUrl(name, url, enabled) { success ->
                 if (success) {
                     Toast.makeText(
                         this@ScriptManagerActivity,
@@ -389,36 +384,15 @@ class ScriptManagerActivity : AppCompatActivity() {
 
             if (script.isCustom) {
                 holder.urlText.visibility = View.GONE
-                holder.autoUpdateSwitch.visibility = View.GONE
             } else {
                 holder.urlText.visibility = View.VISIBLE
-                holder.autoUpdateSwitch.visibility = View.VISIBLE
                 holder.urlText.text = script.url
-                holder.autoUpdateSwitch.isChecked = script.isAutoUpdate
             }
 
             holder.enabledSwitch.isChecked = script.isEnabled
 
             holder.enabledSwitch.setOnCheckedChangeListener { buttonView: CompoundButton?, isChecked: Boolean ->
                 userScriptManager!!.setScriptEnabled(script.filename, isChecked)
-            }
-
-            holder.autoUpdateSwitch.setOnCheckedChangeListener { buttonView: CompoundButton, isChecked: Boolean ->
-                // We'll need to update the script info and save it
-                userScriptManager!!.removeScript(script.filename)
-                userScriptManager!!.addScriptFromUrl(
-                    script.name, script.url,
-                    script.isEnabled, isChecked
-                ) { success ->
-                    if (!success) {
-                        Toast.makeText(
-                            this@ScriptManagerActivity,
-                            "Failed to update auto-update setting", Toast.LENGTH_SHORT
-                        ).show()
-                        buttonView.isChecked = !isChecked
-                        loadScripts()
-                    }
-                }
             }
 
             holder.itemView.setOnClickListener { v ->
@@ -431,7 +405,6 @@ class ScriptManagerActivity : AppCompatActivity() {
             var typeText: TextView = view.findViewById(R.id.script_type)
             var urlText: TextView = view.findViewById(R.id.script_url)
             var enabledSwitch: Switch = view.findViewById(R.id.script_enabled)
-            var autoUpdateSwitch: Switch = view.findViewById(R.id.script_auto_update)
         }
     }
 }

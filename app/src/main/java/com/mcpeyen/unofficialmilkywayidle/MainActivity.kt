@@ -65,38 +65,52 @@ class MainActivity : AppCompatActivity() {
             // Call your existing openScriptManager method
             this@MainActivity.openScriptManager()
         }
+
+        @JavascriptInterface
+        fun refreshPage() {
+            // Call your existing openScriptManager method
+            this@MainActivity.refreshPage()
+        }
     }
 
-    private fun updateScripts() {
-        lifecycleScope.launch {
-            val updateCount = userScriptManager!!.getUpdateScriptCount()
-            if (updateCount > 0) {
-                Toast.makeText(
-                    this@MainActivity,
-                    "Updating $updateCount scripts...",
-                    Toast.LENGTH_SHORT
-                ).show()
-
-                userScriptManager!!.updateAllScripts {
-                    runOnUiThread {
-                        Toast.makeText(
-                            this@MainActivity,
-                            "Scripts updated",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                    injectScripts()
+    @JavascriptInterface
+    fun refreshPage() {
+        runOnUiThread {
+            webView!!.reload()
+            webView!!.webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+                    updateScripts()
                 }
-            } else {
-                injectScripts()
             }
         }
     }
 
-    private fun injectScripts() {
-        systemScriptManager!!.injectGreasemonkeyAPI()
-        systemScriptManager!!.injectSettings()
-        systemScriptManager!!.disableLongClick()
-        userScriptManager!!.injectEnabledScripts(webView!!)
+    private fun updateScripts() {
+        lifecycleScope.launch {
+            val enabledCount = userScriptManager!!.getEnabledScriptCount()
+            if (enabledCount > 0) {
+                userScriptManager!!.updateEnabledScripts {
+                    runOnUiThread {
+                        systemScriptManager!!.injectGreasemonkeyAPI()
+                        systemScriptManager!!.injectRefreshButton()
+                        systemScriptManager!!.injectSettings()
+                        systemScriptManager!!.disableLongClick()
+                        userScriptManager!!.injectEnabledScripts(webView!!)
+
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Injecting $enabledCount script(s)...",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            } else {
+                systemScriptManager!!.injectGreasemonkeyAPI()
+                systemScriptManager!!.injectRefreshButton()
+                systemScriptManager!!.injectSettings()
+                systemScriptManager!!.disableLongClick()
+            }
+        }
     }
 }

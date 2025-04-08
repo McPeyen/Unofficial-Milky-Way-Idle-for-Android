@@ -41,11 +41,4 @@
         android:checked="true"
         android:text="Enable script" />
 
-    <CheckBox
-        android:id="@+id/script_auto_update"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:checked="true"
-        android:text="Automatically update script" />
-
 </LinearLayout>
