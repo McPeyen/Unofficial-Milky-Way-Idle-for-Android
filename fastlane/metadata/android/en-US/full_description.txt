@@ -1,0 +1,17 @@
+This is an unofficial Android client for Milky Way Idle with an inbuilt script manager!
+
+Step into Milky Way Idle, a multiplayer idle game that combines classic RPG elements with automated progression and an active community. Level up skills, manage resources, craft equipment, and battle monsters - all while progressing effortlessly, even when offline.
+
+Automated Progression: Queue up a sequence of actions with offline progress of 10+ hours (or days!). No manual grinding - plan smart and play at your own pace.
+
+Level Up Skills: Level up 10 non-combat skills and 7 combat skills. Choose how to allocate your time and resources to optimize your growth.
+
+Gather And Craft: Gather resources and craft them into consumables, equipment, and more.
+
+AFK Combat: Battle monsters, bosses, and dungeons with diverse combat styles while fully AFK. Auto-activate consumables and abilities with configurable conditions.
+
+Multiplayer: Trade valuable items, party up for dungeons, socialize in guilds, and climb the leaderboards.
+
+Long-Term Depth: Unlock hundreds of items, hunt rare drops, enhance your equipment. Enjoy content designed to last months or even years.
+
+Active Development: New features and updates arrive every 1-2 months to expand your journey.
