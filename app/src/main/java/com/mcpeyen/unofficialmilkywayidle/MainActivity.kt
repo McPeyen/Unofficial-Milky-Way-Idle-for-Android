@@ -16,9 +16,9 @@ import kotlinx.coroutines.launch
 
 
 class MainActivity : AppCompatActivity() {
-    private var webView: WebView? = null
-    private var userScriptManager: UserScriptManager? = null
-    private var systemScriptManager: SystemScriptManager? = null
+    private lateinit var webView: WebView
+    private lateinit var userScriptManager: UserScriptManager
+    private lateinit var systemScriptManager: SystemScriptManager
 
     @SuppressLint("SetJavaScriptEnabled")
     protected override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,27 +26,27 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         webView = findViewById(R.id.webview)
-        webView!!.settings.javaScriptEnabled = true
-        webView!!.settings.domStorageEnabled = true
-        webView!!.settings.cacheMode = WebSettings.LOAD_DEFAULT
+        webView.settings.javaScriptEnabled = true
+        webView.settings.domStorageEnabled = true
+        webView.settings.cacheMode = WebSettings.LOAD_DEFAULT
 
         userScriptManager = UserScriptManager(this)
-        systemScriptManager = SystemScriptManager(this, webView!!)
+        systemScriptManager = SystemScriptManager(this, webView)
 
-        webView!!.webViewClient = object : WebViewClient() {
+        webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
                 updateScripts()
             }
         }
 
-        webView!!.addJavascriptInterface(WebAppInterface(), "Android")
-        webView!!.loadUrl("https://www.milkywayidle.com/")
+        webView.addJavascriptInterface(WebAppInterface(), "Android")
+        webView.loadUrl("https://www.milkywayidle.com/")
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (webView!!.canGoBack()) {
-                    webView!!.goBack()
+                if (webView.canGoBack()) {
+                    webView.goBack()
                 } else {
                     finish()
                 }
@@ -74,8 +74,8 @@ class MainActivity : AppCompatActivity() {
     @JavascriptInterface
     fun refreshPage() {
         runOnUiThread {
-            webView!!.reload()
-            webView!!.webViewClient = object : WebViewClient() {
+            webView.reload()
+            webView.webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
                     updateScripts()
@@ -86,9 +86,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateScripts() {
         lifecycleScope.launch {
-            val enabledCount = userScriptManager!!.getEnabledScriptCount()
+            val enabledCount = userScriptManager.getEnabledScriptCount()
             if (enabledCount > 0) {
-                userScriptManager!!.updateEnabledScripts {
+                userScriptManager.updateEnabledScripts {
                     runOnUiThread {
                         Toast.makeText(
                             this@MainActivity,
@@ -96,18 +96,18 @@ class MainActivity : AppCompatActivity() {
                             Toast.LENGTH_SHORT
                         ).show()
 
-                        systemScriptManager!!.injectGreasemonkeyAPI()
-                        systemScriptManager!!.injectRefreshButton()
-                        systemScriptManager!!.injectSettings()
-                        systemScriptManager!!.disableLongClick()
-                        userScriptManager!!.injectEnabledScripts(webView!!)
+                        systemScriptManager.injectGreasemonkeyAPI()
+                        systemScriptManager.injectRefreshButton()
+                        systemScriptManager.injectSettings()
+                        systemScriptManager.disableLongClick()
+                        userScriptManager.injectEnabledScripts(webView)
                     }
                 }
             } else {
-                systemScriptManager!!.injectGreasemonkeyAPI()
-                systemScriptManager!!.injectRefreshButton()
-                systemScriptManager!!.injectSettings()
-                systemScriptManager!!.disableLongClick()
+                systemScriptManager.injectGreasemonkeyAPI()
+                systemScriptManager.injectRefreshButton()
+                systemScriptManager.injectSettings()
+                systemScriptManager.disableLongClick()
             }
         }
     }

@@ -16,7 +16,7 @@ class SystemScriptManager(private val context: Context, private val webView: Web
                     refreshContainer.style.display = "flex";
                     refreshContainer.style.alignItems = "center";
                     refreshContainer.style.margin = "0px 0";
-                
+
                     let label = document.createElement("span");
                     label.innerHTML = "Reload: ";
                     label.style.marginRight = "10px";
@@ -53,7 +53,7 @@ class SystemScriptManager(private val context: Context, private val webView: Web
             }
             setTimeout(mcRefresh, 500);
         };
-        
+
         mcRefresh();
         """.trimIndent()
         webView.evaluateJavascript(jsCode, null)
@@ -71,11 +71,11 @@ class SystemScriptManager(private val context: Context, private val webView: Web
                     container.style.display = "flex";
                     container.style.alignItems = "center";
                     container.style.margin = "0px 0";
-               
+
                     let label = document.createElement("span");
                     label.innerHTML = "Open Script Manager: ";
                     label.style.marginRight = "10px";
-          
+
                     let button = document.createElement("button");
                     button.style.backgroundColor = "#4357af";
                     button.style.color = "white";
@@ -104,11 +104,11 @@ class SystemScriptManager(private val context: Context, private val webView: Web
 
                     container.appendChild(label);
                     container.appendChild(button);
-                    targetNode.insertAdjacentElement("beforeend", container);            
+                    targetNode.insertAdjacentElement("beforeend", container);
                 }
             }
-            setTimeout(mcSettings, 500);            
-        };        
+            setTimeout(mcSettings, 500);
+        };
         mcSettings();
         """.trimIndent()
 
@@ -178,9 +178,9 @@ class SystemScriptManager(private val context: Context, private val webView: Web
             window.GM_xmlhttpRequest = function(details) {
                 return new Promise((resolve, reject) => {
                     const xhr = new XMLHttpRequest();
-        
+
                     xhr.open(details.method || 'GET', details.url, !details.synchronous);
-        
+
                     if (details.headers) {
                         for (const header in details.headers) {
                             xhr.setRequestHeader(header, details.headers[header]);
@@ -190,7 +190,7 @@ class SystemScriptManager(private val context: Context, private val webView: Web
                     if (details.responseType) {
                         xhr.responseType = details.responseType;
                     }
-        
+
                     // Create response object that mimics Greasemonkey's response format
                     const createResponse = () => {
                         return {
@@ -203,39 +203,39 @@ class SystemScriptManager(private val context: Context, private val webView: Web
                             finalUrl: xhr.responseURL
                         };
                     };
-        
+
                     xhr.onload = function() {
                         const response = createResponse();
                         if (details.onload) details.onload(response);
                         resolve(response);
                     };
-        
+
                     xhr.onerror = function() {
                         const response = createResponse();
                         if (details.onerror) details.onerror(response);
                         reject(response);
                     };
-        
+
                     xhr.onabort = function() {
                         const response = createResponse();
                         if (details.onabort) details.onabort(response);
                         reject(response);
                     };
-        
+
                     xhr.ontimeout = function() {
                         const response = createResponse();
                         if (details.ontimeout) details.ontimeout(response);
                         reject(response);
                     };
-        
+
                     if (details.onprogress) {
                         xhr.onprogress = function(e) { 
                             details.onprogress(e); 
                         };
                     }
-        
+
                     xhr.send(details.data || null);
-            
+
                     // For compatibility with code that expects a return value with abort method
                     return { 
                         abort: function() { 
@@ -245,7 +245,7 @@ class SystemScriptManager(private val context: Context, private val webView: Web
                     };
                 });
             };
-            
+
             window.GM_notification = function(details, ondone) {
                 if (typeof details === 'string') {
                     details = { text: details };
@@ -319,8 +319,8 @@ class SystemScriptManager(private val context: Context, private val webView: Web
                     }
                 };
             };
-            
-            // Create the GM object and attach the functions            
+
+            // Create the GM object and attach the functions
             window.GM = {
                 setValue: GM_setValue,
                 getValue: GM_getValue,

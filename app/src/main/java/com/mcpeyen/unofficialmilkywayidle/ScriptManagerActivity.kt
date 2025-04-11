@@ -21,11 +21,10 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 
 class ScriptManagerActivity : AppCompatActivity() {
-    private var userScriptManager: UserScriptManager? = null
-    private var recyclerView: RecyclerView? = null
-    private var adapter: ScriptAdapter? = null
-    private val scripts: MutableList<UserScriptManager.ScriptInfo> =
-        ArrayList<UserScriptManager.ScriptInfo>()
+    private lateinit var userScriptManager: UserScriptManager
+    private lateinit var recyclerView: RecyclerView
+    private lateinit var adapter: ScriptAdapter
+    private val scripts: MutableList<UserScriptManager.ScriptInfo> = ArrayList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,10 +39,10 @@ class ScriptManagerActivity : AppCompatActivity() {
         userScriptManager = UserScriptManager(this)
 
         recyclerView = findViewById(R.id.recycler_view)
-        recyclerView!!.setLayoutManager(LinearLayoutManager(this))
+        recyclerView.setLayoutManager(LinearLayoutManager(this))
 
         adapter = ScriptAdapter()
-        recyclerView!!.setAdapter(adapter)
+        recyclerView.setAdapter(adapter)
 
         val addUrlButton: Button = findViewById(R.id.add_url_button)
         val addCustomButton: Button = findViewById(R.id.add_custom_button)
@@ -53,9 +52,7 @@ class ScriptManagerActivity : AppCompatActivity() {
 
         loadScripts()
 
-
-        // Update all scripts when opening the manager
-        userScriptManager!!.updateEnabledScripts { this.loadScripts() }
+        userScriptManager.updateEnabledScripts { this.loadScripts() }
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -68,8 +65,8 @@ class ScriptManagerActivity : AppCompatActivity() {
 
     private fun loadScripts() {
         scripts.clear()
-        scripts.addAll(userScriptManager!!.allScripts())
-        adapter!!.notifyDataSetChanged()
+        scripts.addAll(userScriptManager.allScripts())
+        adapter.notifyDataSetChanged()
     }
 
     private fun showAddUrlDialog() {
@@ -132,7 +129,7 @@ class ScriptManagerActivity : AppCompatActivity() {
                 "Downloading script...",
                 Toast.LENGTH_SHORT
             ).show()
-            userScriptManager!!.addScriptFromUrl(name, modifiedUrl, enabled) { success ->
+            userScriptManager.addScriptFromUrl(name, modifiedUrl, enabled) { success ->
                 if (success) {
                     Toast.makeText(
                         this@ScriptManagerActivity,
@@ -183,7 +180,7 @@ class ScriptManagerActivity : AppCompatActivity() {
                 ).show()
                 return@setOnClickListener
             }
-            userScriptManager!!.addCustomScript(name, content, enabled) { success ->
+            userScriptManager.addCustomScript(name, content, enabled) { success ->
                 if (success) {
                     Toast.makeText(
                         this@ScriptManagerActivity,
@@ -236,7 +233,7 @@ class ScriptManagerActivity : AppCompatActivity() {
                     .setTitle("Confirm Delete")
                     .setMessage("Are you sure you want to delete this script?")
                     .setPositiveButton("Yes") { d: DialogInterface?, which: Int ->
-                        userScriptManager!!.removeScript(script.filename)
+                        userScriptManager.removeScript(script.filename)
                         loadScripts()
                         Toast.makeText(
                             this@ScriptManagerActivity,
@@ -267,8 +264,8 @@ class ScriptManagerActivity : AppCompatActivity() {
 
 
             // Delete old script and add new one with updated info
-            userScriptManager!!.removeScript(script.filename)
-            userScriptManager!!.addScriptFromUrl(name, url, enabled) { success ->
+            userScriptManager.removeScript(script.filename)
+            userScriptManager.addScriptFromUrl(name, url, enabled) { success ->
                 if (success) {
                     Toast.makeText(
                         this@ScriptManagerActivity,
@@ -297,7 +294,7 @@ class ScriptManagerActivity : AppCompatActivity() {
         val enabledCheckbox = view.findViewById<CheckBox>(R.id.script_enabled)
 
         nameInput.setText(script.name)
-        contentInput.setText(userScriptManager!!.loadScriptContent(script.filename))
+        contentInput.setText(userScriptManager.loadScriptContent(script.filename))
         enabledCheckbox.isChecked = script.isEnabled
 
         builder.setView(view)
@@ -313,7 +310,7 @@ class ScriptManagerActivity : AppCompatActivity() {
                     .setTitle("Confirm Delete")
                     .setMessage("Are you sure you want to delete this script?")
                     .setPositiveButton("Yes") { d: DialogInterface?, which: Int ->
-                        userScriptManager!!.removeScript(script.filename)
+                        userScriptManager.removeScript(script.filename)
                         loadScripts()
                         Toast.makeText(
                             this@ScriptManagerActivity,
@@ -344,8 +341,8 @@ class ScriptManagerActivity : AppCompatActivity() {
 
 
             // Delete old script and add new one with updated info
-            userScriptManager!!.removeScript(script.filename)
-            userScriptManager!!.addCustomScript(name, content, enabled) { success ->
+            userScriptManager.removeScript(script.filename)
+            userScriptManager.addCustomScript(name, content, enabled) { success ->
                 if (success) {
                     Toast.makeText(
                         this@ScriptManagerActivity,
@@ -392,7 +389,7 @@ class ScriptManagerActivity : AppCompatActivity() {
             holder.enabledSwitch.isChecked = script.isEnabled
 
             holder.enabledSwitch.setOnCheckedChangeListener { buttonView: CompoundButton?, isChecked: Boolean ->
-                userScriptManager!!.setScriptEnabled(script.filename, isChecked)
+                userScriptManager.setScriptEnabled(script.filename, isChecked)
             }
 
             holder.itemView.setOnClickListener { v ->
