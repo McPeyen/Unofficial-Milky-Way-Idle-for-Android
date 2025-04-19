@@ -3,7 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:background="@color/background_color">
 
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
@@ -12,13 +13,14 @@
         android:background="@color/milky_blue"
         android:elevation="4dp"
         android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
-        app:popupTheme="@style/ThemeOverlay.AppCompat.Light" />
+        app:popupTheme="@style/ThemeOverlay.AppCompat.DayNight" />
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="16dp"
         android:text="Manage your user scripts"
+        android:textColor="@color/text_primary"
         android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
 
     <LinearLayout

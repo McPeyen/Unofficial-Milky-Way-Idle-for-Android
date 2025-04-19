@@ -3,12 +3,14 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="@color/background_color">
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="4dp"
+        android:textColor="@color/text_primary"
         android:text="Script Name:" />
 
     <EditText
@@ -17,12 +19,15 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="8dp"
         android:hint="Enter script name"
+        android:textColor="@color/text_primary"
+        android:textColorHint="@color/text_secondary"
         android:inputType="text" />
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="4dp"
+        android:textColor="@color/text_primary"
         android:text="Script Content:" />
 
     <EditText
@@ -32,6 +37,8 @@
         android:layout_marginBottom="8dp"
         android:gravity="top|start"
         android:hint="// Enter your JavaScript code here"
+        android:textColor="@color/text_primary"
+        android:textColorHint="@color/text_secondary"
         android:inputType="textMultiLine"
         android:minLines="10" />
 
@@ -40,6 +47,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:checked="true"
+        android:textColor="@color/text_primary"
         android:text="Enable script" />
 
 </LinearLayout>

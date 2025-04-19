@@ -5,7 +5,8 @@
     android:layout_height="wrap_content"
     android:layout_marginBottom="8dp"
     app:cardCornerRadius="4dp"
-    app:cardElevation="2dp">
+    app:cardElevation="2dp"
+    app:cardBackgroundColor="@color/card_background">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -29,6 +30,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Script Name"
+                    android:textColor="@color/text_primary"
                     android:textAppearance="@style/TextAppearance.AppCompat.Medium"
                     android:textStyle="bold" />
 
@@ -37,6 +39,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="URL Script"
+                    android:textColor="@color/text_secondary"
                     android:textAppearance="@style/TextAppearance.AppCompat.Small" />
 
                 <TextView
@@ -46,6 +49,7 @@
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:text="https://example.com/script.js"
+                    android:textColor="@color/text_secondary"
                     android:textAppearance="@style/TextAppearance.AppCompat.Small" />
 
             </LinearLayout>
@@ -65,6 +69,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:textColor="@color/text_primary"
                         android:text="Enabled" />
 
                     <Switch
