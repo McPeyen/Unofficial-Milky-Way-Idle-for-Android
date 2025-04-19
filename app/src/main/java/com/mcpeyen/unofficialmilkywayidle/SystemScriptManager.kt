@@ -4,6 +4,153 @@ import android.content.Context
 import android.webkit.WebView
 
 class SystemScriptManager(private val context: Context, private val webView: WebView) {
+
+    fun injectRefreshGesture() {
+        val jsCode = """
+        const mcGestureRefresh = () => {            
+            let refreshIndicator = document.getElementById('mc-refresh-indicator');
+            if (!refreshIndicator) {
+                refreshIndicator = document.createElement('div');
+                refreshIndicator.id = 'mc-refresh-indicator';
+                refreshIndicator.style.cssText = `
+                    position: absolute;
+                    top: 0;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+                    background-color: #4357af;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 9999;
+                    opacity: 0;
+                    transition: opacity 0.2s;
+                    pointer-events: none;
+                `;
+
+                // Create progress circle with SVG namespace
+                const svgNS = "http://www.w3.org/2000/svg";
+                const progressCircle = document.createElementNS(svgNS, 'svg');
+                progressCircle.setAttribute('width', '32');
+                progressCircle.setAttribute('height', '32');
+                progressCircle.setAttribute('viewBox', '0 0 32 32');
+                progressCircle.style.cssText = `
+                    transform: rotate(-90deg);
+                `;
+
+                // Background circle
+                const backgroundCircle = document.createElementNS(svgNS, 'circle');
+                backgroundCircle.setAttribute('cx', '16');
+                backgroundCircle.setAttribute('cy', '16');
+                backgroundCircle.setAttribute('r', '12');
+                backgroundCircle.setAttribute('stroke', 'rgba(255, 255, 255, 0.3)');
+                backgroundCircle.setAttribute('stroke-width', '3');
+                backgroundCircle.setAttribute('fill', 'none');
+
+                // Progress circle
+                const progressArc = document.createElementNS(svgNS, 'circle');
+                progressArc.id = 'mc-progress-arc';
+                progressArc.setAttribute('cx', '16');
+                progressArc.setAttribute('cy', '16');
+                progressArc.setAttribute('r', '12');
+                progressArc.setAttribute('stroke', '#ffffff');
+                progressArc.setAttribute('stroke-width', '3');
+                progressArc.setAttribute('fill', 'none');
+
+                const circumference = 2 * Math.PI * 12;
+                progressArc.setAttribute('stroke-dasharray', circumference.toString());
+                progressArc.setAttribute('stroke-dashoffset', circumference.toString());
+
+                progressCircle.appendChild(backgroundCircle);
+                progressCircle.appendChild(progressArc);
+                refreshIndicator.appendChild(progressCircle);
+                document.body.appendChild(refreshIndicator);
+            }
+
+            const targetNode = document.querySelector("div.GamePage_headerPanel__1T_cA");
+            if (targetNode) {
+                window.headerHeight = targetNode.offsetHeight;
+                const REFRESH_THRESHOLD = 200;  // Pull distance needed to trigger refresh
+
+                targetNode.addEventListener('touchstart', function(e) {
+                    window.pullStartY = e.touches[0].clientY;
+                    refreshIndicator.style.transition = 'none';
+                    document.getElementById('mc-progress-arc').style.transition = 'none';
+                });
+
+                targetNode.addEventListener('touchmove', function(e) {
+                    if (window.pullStartY) {
+                        var pullDistance = e.touches[0].clientY - window.pullStartY;
+
+                        if (pullDistance > 0) {
+                            refreshIndicator.style.opacity = Math.min(pullDistance / 100, 1).toString();
+                            refreshIndicator.style.transform = `translateX(-50%) scale({"${'$'}"}{Math.min(0.8 + (pullDistance / 250), 1.2)})`;
+
+                            const progressPercentage = Math.min(pullDistance / REFRESH_THRESHOLD, 1);
+
+                            const progressArc = document.getElementById('mc-progress-arc');
+                            const circumference = 2 * Math.PI * 12;  // 2πr
+                            const dashOffset = circumference * (1 - progressPercentage);
+                            progressArc.setAttribute('stroke-dashoffset', dashOffset.toString());
+
+                            if (pullDistance > REFRESH_THRESHOLD) {
+                                window.Android.refreshPage();
+                                window.pullStartY = null;
+
+                                refreshIndicator.style.opacity = '1';
+                                refreshIndicator.style.transition = 'opacity 0.5s';
+
+                                const progressArc = document.getElementById('mc-progress-arc');
+                                progressArc.setAttribute('stroke-dashoffset', '0');
+                                progressArc.style.transition = 'stroke-dashoffset 0.3s';
+                                refreshIndicator.style.animation = 'mc-spin 1s linear infinite';
+
+                                setTimeout(() => {
+                                    refreshIndicator.style.opacity = '0';
+                                    refreshIndicator.style.animation = '';
+                                }, 1000);
+                            }
+                        }
+                    }
+                });
+
+                targetNode.addEventListener('touchend', function() {
+                    if (window.pullStartY) {
+                        refreshIndicator.style.transition = 'opacity 0.3s, transform 0.3s';
+                        refreshIndicator.style.opacity = '0';
+                        refreshIndicator.style.transform = 'translateX(-50%) scale(1)';
+
+                        const progressArc = document.getElementById('mc-progress-arc');
+                        progressArc.style.transition = 'stroke-dashoffset 0.3s';
+                        const circumference = 2 * Math.PI * 12;
+                        progressArc.setAttribute('stroke-dashoffset', circumference.toString());
+                        refreshIndicator.style.animation = '';
+
+                        window.pullStartY = null;
+                    }
+                });
+            }
+
+            if (!document.getElementById('mc-refresh-styles')) {
+                const styleTag = document.createElement('style');
+                styleTag.id = 'mc-refresh-styles';
+                styleTag.textContent = `
+                    @keyframes mc-spin {
+                        0% { transform: translateX(-50%) rotate(0deg); }
+                        100% { transform: translateX(-50%) rotate(360deg); }
+                    }
+                `;
+                document.head.appendChild(styleTag);
+            }
+            setTimeout(mcGestureRefresh, 500);
+        };
+        mcGestureRefresh();
+        """.trimIndent()
+        webView.evaluateJavascript(jsCode, null)
+    }
+
     fun injectRefreshButton() {
         val jsCode = """
         const mcRefresh = () => {

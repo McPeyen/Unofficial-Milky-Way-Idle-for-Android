@@ -22,6 +22,7 @@
         android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
 
     <LinearLayout
+        style="?android:attr/buttonBarStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -29,6 +30,7 @@
 
         <Button
             android:id="@+id/add_url_button"
+            style="?android:attr/buttonBarButtonStyle"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginEnd="4dp"
@@ -37,6 +39,7 @@
 
         <Button
             android:id="@+id/add_custom_button"
+            style="?android:attr/buttonBarButtonStyle"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"

@@ -75,17 +75,17 @@ class MainActivity : AppCompatActivity() {
     fun refreshPage() {
         runOnUiThread {
             webView.reload()
-            webView.webViewClient = object : WebViewClient() {
-                override fun onPageFinished(view: WebView?, url: String?) {
-                    super.onPageFinished(view, url)
-                    updateScripts()
-                }
-            }
         }
     }
 
     private fun updateScripts() {
         lifecycleScope.launch {
+            systemScriptManager.injectGreasemonkeyAPI()
+            systemScriptManager.injectRefreshButton()
+            systemScriptManager.injectRefreshGesture()
+            systemScriptManager.injectSettings()
+            systemScriptManager.disableLongClick()
+
             val enabledCount = userScriptManager.getEnabledScriptCount()
             if (enabledCount > 0) {
                 userScriptManager.updateEnabledScripts {
@@ -96,18 +96,9 @@ class MainActivity : AppCompatActivity() {
                             Toast.LENGTH_SHORT
                         ).show()
 
-                        systemScriptManager.injectGreasemonkeyAPI()
-                        systemScriptManager.injectRefreshButton()
-                        systemScriptManager.injectSettings()
-                        systemScriptManager.disableLongClick()
                         userScriptManager.injectEnabledScripts(webView)
                     }
                 }
-            } else {
-                systemScriptManager.injectGreasemonkeyAPI()
-                systemScriptManager.injectRefreshButton()
-                systemScriptManager.injectSettings()
-                systemScriptManager.disableLongClick()
             }
         }
     }
