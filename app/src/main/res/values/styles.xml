@@ -8,6 +8,9 @@
         <item name="android:windowBackground">@color/background_color</item>
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:navigationBarColor">@color/bar_color</item>
+        <item name="android:statusBarColor">@color/bar_color</item>
 
         <item name="cardBackgroundColor">@color/card_background</item>
     </style>

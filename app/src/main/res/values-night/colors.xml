@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="accent">#748CE7</color>
-    <color name="milky_blue">#4357af</color>
+    <color name="milky_blue">#34407A</color>
 
     <!-- Dark theme colors -->
+    <color name="bar_color">#1C1C29</color>
     <color name="background_color">#121212</color>
     <color name="card_background">#272727</color>
     <color name="text_primary">#DEFFFFFF</color>

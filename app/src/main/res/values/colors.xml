@@ -3,9 +3,10 @@
     <color name="primary">#607D8B</color>
     <color name="primary_dark">#455A64</color>
     <color name="accent">#748CE7</color>
-    <color name="milky_blue">#4357af</color>
+    <color name="milky_blue">#34407A</color>
 
     <!-- Light theme colors -->
+    <color name="bar_color">#1C1C29</color>
     <color name="background_color">#FFFFFF</color>
     <color name="card_background">#FFFFFF</color>
     <color name="text_primary">#DE000000</color>
