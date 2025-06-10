@@ -4,9 +4,9 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="8dp"
+    app:cardBackgroundColor="@color/card_background"
     app:cardCornerRadius="4dp"
-    app:cardElevation="2dp"
-    app:cardBackgroundColor="@color/card_background">
+    app:cardElevation="2dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -29,18 +29,18 @@
                     android:id="@+id/script_name"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Script Name"
-                    android:textColor="@color/text_primary"
                     android:textAppearance="@style/TextAppearance.AppCompat.Medium"
-                    android:textStyle="bold" />
+                    android:textColor="@color/text_primary"
+                    android:textStyle="bold"
+                    android:text="Script Name" />
 
                 <TextView
                     android:id="@+id/script_type"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="URL Script"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
                     android:textColor="@color/text_secondary"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Small" />
+                    android:text="URL Script" />
 
                 <TextView
                     android:id="@+id/script_url"
@@ -48,9 +48,19 @@
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:maxLines="1"
-                    android:text="https://example.com/script.js"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
                     android:textColor="@color/text_secondary"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Small" />
+                    android:text="https://example.com/script.js" />
+
+                <TextView
+                    android:id="@+id/script_last_updated"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Last updated: Just now"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                    android:textColor="@color/text_secondary"
+                    android:visibility="visible" />
 
             </LinearLayout>
 
@@ -69,8 +79,8 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textColor="@color/text_primary"
-                        android:text="Enabled" />
+                        android:text="Enabled"
+                        android:textColor="@color/text_primary" />
 
                     <Switch
                         android:id="@+id/script_enabled"
@@ -79,13 +89,6 @@
                         android:layout_marginStart="8dp" />
 
                 </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal" />
 
             </LinearLayout>
 

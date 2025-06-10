@@ -6,7 +6,10 @@ import android.util.Log
 import android.webkit.WebView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONException
@@ -19,310 +22,285 @@ import java.net.URL
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
-class UserScriptManager(private val context: Context) {
-    private val preferences: SharedPreferences =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+class UserScriptManager(
+    private val context: Context,
+    private val externalScope: CoroutineScope
+) {
+
+    private val configMutex = Mutex()
 
     init {
-        initializeScriptsDirectory()
-    }
-
-    suspend fun getEnabledScriptCount(): Int {
-        return withContext(Dispatchers.IO) {
-            try {
-                val config = loadConfig()
-                val scripts = config.getJSONArray("scripts")
-
-                var scriptsToUpdate = 0
-
-                for (i in 0..<scripts.length()) {
-                    val script = scripts.getJSONObject(i)
-                    if (script.getBoolean("enabled")) {
-                        scriptsToUpdate += 1
-                    }
-                }
-
-                scriptsToUpdate
-            } catch (e: Exception) {
-                Log.e(TAG, "Error getting script count to update", e)
-                0
-            }
+        externalScope.launch(Dispatchers.IO) {
+            initializeScriptsDirectory()
         }
     }
 
-    fun updateEnabledScripts(onComplete: Runnable?) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
+    suspend fun getEnabledScriptCount(): Int = withContext(Dispatchers.IO) {
+        try {
+            val config = loadConfig()
+            val scripts = config.optJSONArray("scripts") ?: return@withContext 0
+            var count = 0
+            for (i in 0 until scripts.length()) {
+                if (scripts.getJSONObject(i).optBoolean("enabled")) {
+                    count++
+                }
+            }
+            count
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting enabled script count", e)
+            0
+        }
+    }
+
+    suspend fun updateEnabledScripts(onComplete: suspend () -> Unit): Job = externalScope.launch {
+        try {
+            configMutex.withLock { // 3. PROTECT READ-MODIFY-WRITE WITH MUTEX
                 val config = loadConfig()
                 val scripts = config.getJSONArray("scripts")
+                var configChanged = false
 
-                for (i in 0..<scripts.length()) {
+                for (i in 0 until scripts.length()) {
                     val script = scripts.getJSONObject(i)
                     if (script.getBoolean("enabled")) {
                         val lastUpdated = script.getLong("lastUpdated")
                         val currentTime = System.currentTimeMillis()
 
-                        // Update if it's been more than the update interval
                         if (currentTime - lastUpdated > UPDATE_INTERVAL) {
                             val url = script.getString("url")
                             val filename = script.getString("filename")
-                            downloadScript(url, filename)
-
-                            // Update last updated time
-                            script.put("lastUpdated", currentTime)
+                            Log.d(TAG, "Updating script: $filename")
+                            if (downloadScript(url, filename)) {
+                                script.put("lastUpdated", currentTime)
+                                configChanged = true
+                            }
                         }
                     }
                 }
-
-                // Save updated config
-                saveConfig(config)
-
-                // Switch to main thread to run the completion callback
-                withContext(Dispatchers.Main) {
-                    onComplete?.run()
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error updating scripts", e)
+                if (configChanged) saveConfig(config)
             }
+
+            onComplete()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating scripts", e)
         }
     }
 
-    fun addScriptFromUrl(
-        name: String,
-        url: String,
-        enabled: Boolean,
-        callback: (Boolean) -> Unit
-    ) {
-        CoroutineScope(Dispatchers.IO).launch {
-            val success = try {
-                // Generate filename from name
-                val filename = name.lowercase(Locale.getDefault())
-                    .replace("[^a-z0-9]".toRegex(), "_") + ".js"
+    suspend fun addScriptFromUrl(name: String, url: String, enabled: Boolean): Boolean =
+        withContext(Dispatchers.IO) {
+            try {
+                val filename = generateFilename(name)
+                if (!downloadScript(url, filename)) return@withContext false
 
-                // Download the script
-                val downloadSuccess = downloadScript(url, filename)
-                if (!downloadSuccess) {
-                    false
-                } else {
-                    // Add to config
+                configMutex.withLock {
                     val config = loadConfig()
                     val scripts = config.getJSONArray("scripts")
+                    val existingScript = findScriptByFilename(scripts, filename)
 
-                    // Check if script already exists
-                    var scriptExists = false
-                    for (i in 0..<scripts.length()) {
-                        val script = scripts.getJSONObject(i)
-                        if (script.getString("filename") == filename) {
-                            script.put("url", url)
-                            script.put("enabled", enabled)
-                            script.put("lastUpdated", System.currentTimeMillis())
-                            scriptExists = true
-                            break
+                    if (existingScript != null) {
+                        existingScript.put("url", url)
+                        existingScript.put("enabled", enabled)
+                        existingScript.put("lastUpdated", System.currentTimeMillis())
+                    } else {
+                        val newScript = JSONObject().apply {
+                            put("name", name)
+                            put("url", url)
+                            put("filename", filename)
+                            put("enabled", enabled)
+                            put("lastUpdated", System.currentTimeMillis())
                         }
+                        scripts.put(newScript)
                     }
-
-                    // Add new script if it doesn't exist
-                    if (!scriptExists) {
-                        val script = JSONObject()
-                        script.put("name", name)
-                        script.put("url", url)
-                        script.put("filename", filename)
-                        script.put("enabled", enabled)
-                        script.put("lastUpdated", System.currentTimeMillis())
-                        scripts.put(script)
-                    }
-
                     saveConfig(config)
-                    true
                 }
+                true
             } catch (e: Exception) {
                 Log.e(TAG, "Error adding script from URL", e)
                 false
             }
-
-            // Switch to main thread to call the callback
-            withContext(Dispatchers.Main) {
-                callback(success)
-            }
         }
-    }
 
-    fun addCustomScript(
-        name: String,
-        content: String,
-        enabled: Boolean,
-        callback: (Boolean) -> Unit
-    ) {
-        CoroutineScope(Dispatchers.IO).launch {
-            val success = try {
-                // Generate filename from name
-                val filename = name.lowercase(Locale.getDefault())
-                    .replace("[^a-z0-9]".toRegex(), "_") + ".js"
-
-                // Save the script content
+    suspend fun addCustomScript(name: String, content: String, enabled: Boolean): Boolean =
+        withContext(Dispatchers.IO) {
+            try {
+                val filename = generateFilename(name)
                 val file = File(File(context.filesDir, SCRIPTS_DIR), filename)
-                FileOutputStream(file).use { fos ->
-                    fos.write(content.toByteArray())
-                }
+                file.writeText(content) // Simpler way to write string to file
 
-                // Add to config
-                val config = loadConfig()
-                val scripts = config.getJSONArray("scripts")
+                configMutex.withLock {
+                    val config = loadConfig()
+                    val scripts = config.getJSONArray("scripts")
+                    val existingScript = findScriptByFilename(scripts, filename)
 
-                // Check if script already exists
-                var scriptExists = false
-                for (i in 0..<scripts.length()) {
-                    val script = scripts.getJSONObject(i)
-                    if (script.getString("filename") == filename) {
-                        script.put("enabled", enabled)
-                        script.put("custom", true)
-                        script.put("lastUpdated", System.currentTimeMillis())
-                        scriptExists = true
-                        break
+                    if (existingScript != null) {
+                        existingScript.put("enabled", enabled)
+                        existingScript.put("custom", true)
+                        existingScript.put("lastUpdated", System.currentTimeMillis())
+                    } else {
+                        val newScript = JSONObject().apply {
+                            put("name", name)
+                            put("filename", filename)
+                            put("enabled", enabled)
+                            put("custom", true)
+                            put("lastUpdated", System.currentTimeMillis())
+                        }
+                        scripts.put(newScript)
                     }
+                    saveConfig(config)
                 }
-
-                // Add new script if it doesn't exist
-                if (!scriptExists) {
-                    val script = JSONObject()
-                    script.put("name", name)
-                    script.put("filename", filename)
-                    script.put("enabled", enabled)
-                    script.put("custom", true)
-                    script.put("lastUpdated", System.currentTimeMillis())
-                    scripts.put(script)
-                }
-
-                saveConfig(config)
                 true
             } catch (e: Exception) {
                 Log.e(TAG, "Error adding custom script", e)
                 false
             }
-
-            // Switch to main thread to call the callback
-            withContext(Dispatchers.Main) {
-                callback(success)
-            }
         }
-    }
 
 
-    fun loadScriptContent(filename: String): String? {
+    suspend fun loadScriptContent(filename: String): String? = withContext(Dispatchers.IO) {
         val file = File(File(context.filesDir, SCRIPTS_DIR), filename)
-        if (!file.exists() || !file.isFile) {
-            Log.w(TAG, "Script file does not exist or is not a file: $filename")
-            return null
-        }
-
-        return try {
-            file.bufferedReader().use { reader ->
-                reader.readText()
-            }
+        if (!file.exists()) return@withContext null
+        try {
+            file.readText()
         } catch (e: IOException) {
             Log.e(TAG, "Error loading script content for $filename", e)
             null
         }
     }
 
-    fun setScriptEnabled(filename: String, enabled: Boolean) {
+    suspend fun setScriptEnabled(filename: String, enabled: Boolean) = withContext(Dispatchers.IO) {
         try {
-            val config = loadConfig()
-            val scripts = config.getJSONArray("scripts")
-
-            for (i in 0..<scripts.length()) {
-                val script = scripts.getJSONObject(i)
-                if (script.getString("filename") == filename) {
-                    script.put("enabled", enabled)
-                    break
-                }
+            configMutex.withLock {
+                val config = loadConfig()
+                val scripts = config.getJSONArray("scripts")
+                findScriptByFilename(scripts, filename)?.put("enabled", enabled)
+                saveConfig(config)
             }
-
-            saveConfig(config)
         } catch (e: Exception) {
             Log.e(TAG, "Error setting script enabled state", e)
         }
     }
 
-    fun removeScript(filename: String) {
+    suspend fun removeScript(filename: String) = withContext(Dispatchers.IO) {
         try {
-            // Delete the file
-            val file = File(File(context.filesDir, SCRIPTS_DIR), filename)
-            if (file.exists()) {
-                file.delete()
-            }
+            configMutex.withLock {
+                val file = File(File(context.filesDir, SCRIPTS_DIR), filename)
+                if (file.exists()) file.delete()
 
-            // Remove from config
-            val config = loadConfig()
-            val scripts = config.getJSONArray("scripts")
-            val newScripts = JSONArray()
-
-            for (i in 0..<scripts.length()) {
-                val script = scripts.getJSONObject(i)
-                if (script.getString("filename") != filename) {
-                    newScripts.put(script)
+                val config = loadConfig()
+                val scripts = config.getJSONArray("scripts")
+                val newScripts = JSONArray()
+                for (i in 0 until scripts.length()) {
+                    val script = scripts.getJSONObject(i)
+                    if (script.getString("filename") != filename) {
+                        newScripts.put(script)
+                    }
                 }
+                config.put("scripts", newScripts)
+                saveConfig(config)
             }
-
-            config.put("scripts", newScripts)
-            saveConfig(config)
         } catch (e: Exception) {
             Log.e(TAG, "Error removing script", e)
         }
     }
 
-    fun allScripts(): List<ScriptInfo> {
-
-        val scriptList: MutableList<ScriptInfo> = ArrayList()
-
+    suspend fun getAllScripts(): List<ScriptInfo> = withContext(Dispatchers.IO) {
         try {
             val config = loadConfig()
-            val scripts = config.getJSONArray("scripts")
-
-            for (i in 0..<scripts.length()) {
+            val scripts = config.optJSONArray("scripts") ?: return@withContext emptyList()
+            List(scripts.length()) { i ->
                 val script = scripts.getJSONObject(i)
-
-                val name = script.getString("name")
-                val filename = script.getString("filename")
-                val enabled = script.getBoolean("enabled")
-                val custom = script.optBoolean("custom", false)
-                val url = script.optString("url", "")
-
-                scriptList.add(ScriptInfo(name, filename, enabled, custom, url))
+                ScriptInfo(
+                    name = script.getString("name"),
+                    filename = script.getString("filename"),
+                    isEnabled = script.getBoolean("enabled"),
+                    isCustom = script.optBoolean("custom", false),
+                    url = script.optString("url", ""),
+                    lastUpdated = script.getLong("lastUpdated")
+                )
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error getting all scripts", e)
+            emptyList()
         }
-
-        return scriptList
     }
 
-    fun injectEnabledScripts(webView: WebView) {
-        try {
-            val config = loadConfig()
-            val scripts = config.optJSONArray("scripts") ?: return
+    suspend fun injectEnabledScripts(webView: WebView) {
+        val enabledScriptContents = withContext(Dispatchers.IO) {
+            try {
+                val config = loadConfig()
+                val scripts =
+                    config.optJSONArray("scripts") ?: return@withContext emptyList<String>()
 
-            for (i in 0 until scripts.length()) {
-                val script = scripts.optJSONObject(i) ?: continue
-                if (script.optBoolean("enabled", false)) {
-                    val filename = script.optString("filename")
-                    if (filename.isNotEmpty()) {
-                        Log.d(TAG, "Starting Script Load: $filename")
-                        loadScriptContent(filename)?.let { content ->
-                            webView.evaluateJavascript(content) { result ->
-                                Log.d(TAG, "Script execution result for $filename: $result")
+                val contentList = mutableListOf<String>()
+                for (i in 0 until scripts.length()) {
+                    val script = scripts.optJSONObject(i)
+                    if (script?.optBoolean("enabled", false) == true) {
+                        val filename = script.optString("filename")
+                        if (filename.isNotEmpty()) {
+                            loadScriptContent(filename)?.let { content ->
+                                contentList.add(content)
+                                Log.d(TAG, "Queued script for injection: $filename")
                             }
-                            Log.d(TAG, "Finished Script Load: $filename")
-                        } ?: Log.w(TAG, "Script content was empty: $filename")
+                        }
                     }
                 }
+                contentList // Return the list of script contents
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading script files", e)
+                emptyList<String>() // Return an empty list on error
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error injecting enabled scripts", e)
+        }
+
+        // Now, if we have scripts, switch to the Main thread to interact with the WebView.
+        if (enabledScriptContents.isNotEmpty()) {
+            withContext(Dispatchers.Main) {
+                Log.d(
+                    TAG,
+                    "Creating and injecting master loader for ${enabledScriptContents.size} scripts."
+                )
+                val masterLoaderScript = createMasterLoaderScript(enabledScriptContents)
+
+                webView.evaluateJavascript(masterLoaderScript) {
+                    // This callback also runs on the Main thread.
+                    Log.d(TAG, "Master loader has been successfully dispatched to the WebView.")
+                }
+            }
+        } else {
+            Log.d(TAG, "No enabled scripts to inject.")
         }
     }
 
-    private fun initializeScriptsDirectory() {
+    private fun createMasterLoaderScript(scriptContents: List<String>): String {
+        val scriptsJsonArray = JSONArray(scriptContents).toString()
+
+        return """
+            const pollForGameReady_MASTER_$$ = setInterval(() => {
+                // We will use the more reliable DOM check
+                    const targetNode = document.querySelector("div.GamePage_mainPanel__2njyb");
+                    if (true) {
+                        clearInterval(pollForGameReady_MASTER_$$);
+                        console.log('Wrapper: Game UI is ready. Injecting all ${scriptContents.size} enabled scripts.');
+            
+                        const scriptsToInject = ${scriptsJsonArray};
+
+                        scriptsToInject.forEach((scriptContent, index) => {
+                            try {
+                                const scriptElement = document.createElement('script');
+                                scriptElement.type = 'text/javascript';
+                                scriptElement.textContent = scriptContent;
+                                document.head.appendChild(scriptElement);
+                                console.log('Wrapper: Successfully injected script #' + (index + 1) + '.');
+                            } catch (e) {
+                                console.error('Wrapper: Error injecting script #' + (index + 1) + ':', e);
+                            }
+                        });
+                    } else {
+                        console.log('Wrapper: Waiting for game UI to be ready...');
+                    }
+                }, 300);
+                """
+    }
+
+    private suspend fun initializeScriptsDirectory() {
         val scriptsDir = File(context.filesDir, SCRIPTS_DIR)
         if (!scriptsDir.exists()) {
             scriptsDir.mkdir()
@@ -369,69 +347,88 @@ class UserScriptManager(private val context: Context) {
         }
     }
 
-    private fun downloadScript(scriptUrl: String, filename: String): Boolean {
-        var connection: HttpURLConnection? = null
+    private suspend fun downloadScript(scriptUrl: String, filename: String): Boolean =
+        withContext(Dispatchers.IO) {
+            var connection: HttpURLConnection? = null
 
-        return try {
-            val file = File(File(context.filesDir, SCRIPTS_DIR), filename)
+            return@withContext try {
+                val file = File(File(context.filesDir, SCRIPTS_DIR), filename)
 
-            // Setup connection
-            val url = URL(scriptUrl)
-            connection = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 15000
-                readTimeout = 15000
-                setRequestProperty("Accept", "*/*")
-                instanceFollowRedirects = true
-            }
-
-            // Handle response
-            val responseCode = connection.responseCode
-            if (responseCode !in 200..299) {
-                Log.e(
-                    TAG,
-                    "Failed to download script: HTTP $responseCode - ${connection.responseMessage}"
-                )
-                return false
-            }
-
-            // Get content length for progress tracking (if available)
-            val contentLength = connection.contentLength
-            if (contentLength > 0) {
-                Log.d(TAG, "Downloading script ($contentLength bytes): $filename")
-            } else {
-                Log.d(TAG, "Downloading script (unknown size): $filename")
-            }
-
-            // Use Kotlin's extension functions to handle streams safely
-            connection.inputStream.use { input ->
-                FileOutputStream(file).use { output ->
-                    val buffer = ByteArray(8192) // Larger buffer for better performance
-                    var bytesRead: Int
-                    var totalBytesRead = 0
-
-                    while (input.read(buffer).also { bytesRead = it } != -1) {
-                        output.write(buffer, 0, bytesRead)
-                        totalBytesRead += bytesRead
-                    }
-
-                    Log.d(TAG, "Successfully downloaded script ($totalBytesRead bytes): $filename")
+                // Setup connection
+                val url = URL(scriptUrl)
+                connection = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 15000
+                    readTimeout = 15000
+                    setRequestProperty("Accept", "*/*")
+                    instanceFollowRedirects = true
                 }
-            }
 
-            true
-        } catch (e: IOException) {
-            Log.e(TAG, "Network error downloading script $filename: ${e.message}", e)
-            false
-        } catch (e: SecurityException) {
-            Log.e(TAG, "Security error downloading script $filename: ${e.message}", e)
-            false
-        } catch (e: Exception) {
-            Log.e(TAG, "Unexpected error downloading script $filename: ${e.message}", e)
-            false
-        } finally {
-            connection?.disconnect()
+                // Handle response
+                val responseCode = connection.responseCode
+                if (responseCode !in 200..299) {
+                    Log.e(
+                        TAG,
+                        "Failed to download script: HTTP $responseCode - ${connection.responseMessage}"
+                    )
+                    false
+                }
+
+                // Get content length for progress tracking (if available)
+                val contentLength = connection.contentLength
+                if (contentLength > 0) {
+                    Log.d(TAG, "Downloading script ($contentLength bytes): $filename")
+                } else {
+                    Log.d(TAG, "Downloading script (unknown size): $filename")
+                }
+
+                // Use Kotlin's extension functions to handle streams safely
+                connection.inputStream.use { input ->
+                    FileOutputStream(file).use { output ->
+                        val buffer = ByteArray(8192) // Larger buffer for better performance
+                        var bytesRead: Int
+                        var totalBytesRead = 0
+
+                        while (input.read(buffer).also { bytesRead = it } != -1) {
+                            output.write(buffer, 0, bytesRead)
+                            totalBytesRead += bytesRead
+                        }
+
+                        Log.d(
+                            TAG,
+                            "Successfully downloaded script ($totalBytesRead bytes): $filename"
+                        )
+                    }
+                }
+
+                true
+            } catch (e: IOException) {
+                Log.e(TAG, "Network error downloading script $filename: ${e.message}", e)
+                false
+            } catch (e: SecurityException) {
+                Log.e(TAG, "Security error downloading script $filename: ${e.message}", e)
+                false
+            } catch (e: Exception) {
+                Log.e(TAG, "Unexpected error downloading script $filename: ${e.message}", e)
+                false
+            } finally {
+                connection?.disconnect()
+            }
         }
+
+    private fun findScriptByFilename(scripts: JSONArray, filename: String): JSONObject? {
+        for (i in 0 until scripts.length()) {
+            val script = scripts.getJSONObject(i)
+            if (script.getString("filename") == filename) {
+                return script
+            }
+        }
+        return null
+    }
+
+    private fun generateFilename(name: String): String {
+        return name.lowercase(Locale.getDefault())
+            .replace(Regex("[^a-z0-9]"), "_") + ".js"
     }
 
     @Throws(JSONException::class)
@@ -459,12 +456,13 @@ class UserScriptManager(private val context: Context) {
         fos.close()
     }
 
-    class ScriptInfo(
+    data class ScriptInfo(
         val name: String,
         val filename: String,
         val isEnabled: Boolean,
         val isCustom: Boolean,
-        val url: String
+        val url: String,
+        val lastUpdated: Long
     )
 
     companion object {

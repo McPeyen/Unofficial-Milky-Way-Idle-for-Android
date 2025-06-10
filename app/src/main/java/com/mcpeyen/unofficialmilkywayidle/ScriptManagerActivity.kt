@@ -11,14 +11,21 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.CompoundButton
 import android.widget.EditText
+import android.widget.ImageButton
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.Toolbar
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
 
 class ScriptManagerActivity : AppCompatActivity() {
     private lateinit var userScriptManager: UserScriptManager
@@ -36,7 +43,7 @@ class ScriptManagerActivity : AppCompatActivity() {
         supportActionBar!!.setDisplayHomeAsUpEnabled(true)
         supportActionBar!!.title = "Script Manager"
 
-        userScriptManager = UserScriptManager(this)
+        userScriptManager = UserScriptManager(this, lifecycleScope)
 
         recyclerView = findViewById(R.id.recycler_view)
         recyclerView.setLayoutManager(LinearLayoutManager(this))
@@ -50,9 +57,21 @@ class ScriptManagerActivity : AppCompatActivity() {
         addUrlButton.setOnClickListener { v: View? -> showAddUrlDialog() }
         addCustomButton.setOnClickListener { v: View? -> showAddCustomDialog() }
 
-        loadScripts()
+        lifecycleScope.launch {
+            userScriptManager.updateEnabledScripts {
+                loadScripts()
+            }
+        }
+    }
 
-        userScriptManager.updateEnabledScripts { this.loadScripts() }
+    // ADD THIS HELPER FUNCTION to format the timestamp
+    private fun formatTimestamp(timestamp: Long): String {
+        if (timestamp <= 0L) {
+            return "Last updated: Never"
+        }
+        // This format looks like "2025-06-10 13:30"
+        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm")
+        return "Last updated: " + sdf.format(Date(timestamp))
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -63,9 +82,9 @@ class ScriptManagerActivity : AppCompatActivity() {
         return super.onOptionsItemSelected(item)
     }
 
-    private fun loadScripts() {
+    private suspend fun loadScripts() {
         scripts.clear()
-        scripts.addAll(userScriptManager.allScripts())
+        scripts.addAll(userScriptManager.getAllScripts())
         adapter.notifyDataSetChanged()
     }
 
@@ -129,21 +148,29 @@ class ScriptManagerActivity : AppCompatActivity() {
                 "Downloading script...",
                 Toast.LENGTH_SHORT
             ).show()
-            userScriptManager.addScriptFromUrl(name, modifiedUrl, enabled) { success ->
-                if (success) {
-                    Toast.makeText(
-                        this@ScriptManagerActivity,
-                        "Script added successfully",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    loadScripts()
-                    dialog.dismiss()
-                } else {
-                    Toast.makeText(
-                        this@ScriptManagerActivity,
-                        "Failed to add script",
-                        Toast.LENGTH_SHORT
-                    ).show()
+            lifecycleScope.launch {
+                val success = userScriptManager.addScriptFromUrl(name, modifiedUrl, enabled)
+
+                // Switch to main thread for UI operations
+                withContext(Dispatchers.Main) {
+                    if (success) {
+                        Toast.makeText(
+                            this@ScriptManagerActivity,
+                            "Script added successfully",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        // Launch another coroutine for loadScripts if it's suspend
+                        lifecycleScope.launch {
+                            loadScripts()
+                        }
+                        dialog.dismiss()
+                    } else {
+                        Toast.makeText(
+                            this@ScriptManagerActivity,
+                            "Failed to add script",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 }
             }
         }
@@ -180,7 +207,10 @@ class ScriptManagerActivity : AppCompatActivity() {
                 ).show()
                 return@setOnClickListener
             }
-            userScriptManager.addCustomScript(name, content, enabled) { success ->
+
+            lifecycleScope.launch {
+                val success = userScriptManager.addCustomScript(name, content, enabled)
+
                 if (success) {
                     Toast.makeText(
                         this@ScriptManagerActivity,
@@ -233,13 +263,18 @@ class ScriptManagerActivity : AppCompatActivity() {
                     .setTitle("Confirm Delete")
                     .setMessage("Are you sure you want to delete this script?")
                     .setPositiveButton("Yes") { d: DialogInterface?, which: Int ->
-                        userScriptManager.removeScript(script.filename)
-                        loadScripts()
-                        Toast.makeText(
-                            this@ScriptManagerActivity,
-                            "Script deleted",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        // Launch coroutine to call suspend functions
+                        lifecycleScope.launch {
+                            userScriptManager.removeScript(script.filename)
+                            loadScripts()
+
+                            // Toast will automatically run on main thread since we're using lifecycleScope
+                            Toast.makeText(
+                                this@ScriptManagerActivity,
+                                "Script deleted",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     }
                     .setNegativeButton("No", null)
                     .show()
@@ -264,8 +299,10 @@ class ScriptManagerActivity : AppCompatActivity() {
 
 
             // Delete old script and add new one with updated info
-            userScriptManager.removeScript(script.filename)
-            userScriptManager.addScriptFromUrl(name, url, enabled) { success ->
+            lifecycleScope.launch {
+                userScriptManager.removeScript(script.filename)
+
+                val success = userScriptManager.addScriptFromUrl(name, url, enabled)
                 if (success) {
                     Toast.makeText(
                         this@ScriptManagerActivity,
@@ -294,7 +331,9 @@ class ScriptManagerActivity : AppCompatActivity() {
         val enabledCheckbox = view.findViewById<CheckBox>(R.id.script_enabled)
 
         nameInput.setText(script.name)
-        contentInput.setText(userScriptManager.loadScriptContent(script.filename))
+        lifecycleScope.launch {
+            contentInput.setText(userScriptManager.loadScriptContent(script.filename))
+        }
         enabledCheckbox.isChecked = script.isEnabled
 
         builder.setView(view)
@@ -310,13 +349,15 @@ class ScriptManagerActivity : AppCompatActivity() {
                     .setTitle("Confirm Delete")
                     .setMessage("Are you sure you want to delete this script?")
                     .setPositiveButton("Yes") { d: DialogInterface?, which: Int ->
-                        userScriptManager.removeScript(script.filename)
-                        loadScripts()
-                        Toast.makeText(
-                            this@ScriptManagerActivity,
-                            "Script deleted",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        lifecycleScope.launch {
+                            userScriptManager.removeScript(script.filename)
+                            loadScripts()
+                            Toast.makeText(
+                                this@ScriptManagerActivity,
+                                "Script deleted",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     }
                     .setNegativeButton("No", null)
                     .show()
@@ -341,8 +382,10 @@ class ScriptManagerActivity : AppCompatActivity() {
 
 
             // Delete old script and add new one with updated info
-            userScriptManager.removeScript(script.filename)
-            userScriptManager.addCustomScript(name, content, enabled) { success ->
+            lifecycleScope.launch {
+                userScriptManager.removeScript(script.filename)
+
+                val success = userScriptManager.addCustomScript(name, content, enabled)
                 if (success) {
                     Toast.makeText(
                         this@ScriptManagerActivity,
@@ -378,6 +421,7 @@ class ScriptManagerActivity : AppCompatActivity() {
 
             holder.nameText.text = script.name
             holder.typeText.text = if (script.isCustom) "Custom Script" else "URL Script"
+            holder.lastUpdatedText.text = formatTimestamp(script.lastUpdated)
 
             if (script.isCustom) {
                 holder.urlText.visibility = View.GONE
@@ -389,7 +433,9 @@ class ScriptManagerActivity : AppCompatActivity() {
             holder.enabledSwitch.isChecked = script.isEnabled
 
             holder.enabledSwitch.setOnCheckedChangeListener { buttonView: CompoundButton?, isChecked: Boolean ->
-                userScriptManager.setScriptEnabled(script.filename, isChecked)
+                lifecycleScope.launch {
+                    userScriptManager.setScriptEnabled(script.filename, isChecked)
+                }
             }
 
             holder.itemView.setOnClickListener { v ->
@@ -401,6 +447,7 @@ class ScriptManagerActivity : AppCompatActivity() {
             var nameText: TextView = view.findViewById(R.id.script_name)
             var typeText: TextView = view.findViewById(R.id.script_type)
             var urlText: TextView = view.findViewById(R.id.script_url)
+            var lastUpdatedText: TextView = view.findViewById(R.id.script_last_updated)
             var enabledSwitch: Switch = view.findViewById(R.id.script_enabled)
         }
     }

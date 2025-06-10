@@ -4,9 +4,9 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
 import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
@@ -19,6 +19,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var userScriptManager: UserScriptManager
     private lateinit var systemScriptManager: SystemScriptManager
+    private var scriptInjected = false
 
     @SuppressLint("SetJavaScriptEnabled")
     protected override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,13 +32,17 @@ class MainActivity : AppCompatActivity() {
         webView.settings.domStorageEnabled = true
         webView.settings.cacheMode = WebSettings.LOAD_DEFAULT
 
-        userScriptManager = UserScriptManager(this)
+        userScriptManager = UserScriptManager(this, lifecycleScope)
         systemScriptManager = SystemScriptManager(this, webView)
 
-        webView.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView, url: String) {
-                super.onPageFinished(view, url)
-                updateScripts()
+        webView.webChromeClient = object : WebChromeClient() {
+
+            override fun onProgressChanged(view: WebView, newProgress: Int) {
+                super.onProgressChanged(view, newProgress)
+                if (newProgress > 70 && !scriptInjected) {
+                    injectScripts()
+                    scriptInjected = true
+                }
             }
         }
 
@@ -75,18 +80,14 @@ class MainActivity : AppCompatActivity() {
     @JavascriptInterface
     fun refreshPage() {
         runOnUiThread {
+            scriptInjected = false
             webView.reload()
         }
     }
 
-    private fun updateScripts() {
+    private fun injectScripts() {
         lifecycleScope.launch {
             systemScriptManager.injectGreasemonkeyAPI()
-            systemScriptManager.injectRefreshButton()
-            systemScriptManager.injectRefreshGesture()
-            systemScriptManager.injectSettings()
-            systemScriptManager.disableLongClick()
-
             val enabledCount = userScriptManager.getEnabledScriptCount()
             if (enabledCount > 0) {
                 userScriptManager.updateEnabledScripts {
@@ -96,11 +97,16 @@ class MainActivity : AppCompatActivity() {
                             "Injecting $enabledCount script(s)...",
                             Toast.LENGTH_SHORT
                         ).show()
-
-                        userScriptManager.injectEnabledScripts(webView)
                     }
+
+                    userScriptManager.injectEnabledScripts(webView)
                 }
             }
+
+            systemScriptManager.injectRefreshButton()
+            systemScriptManager.injectRefreshGesture()
+            systemScriptManager.injectSettings()
+            systemScriptManager.disableLongClick()
         }
     }
 }
