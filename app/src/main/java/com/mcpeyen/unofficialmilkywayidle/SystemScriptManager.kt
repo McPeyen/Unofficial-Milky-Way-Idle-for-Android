@@ -53,7 +53,7 @@ class SystemScriptManager(private val context: Context, private val webView: Web
         if (settingsLink) {
           const existingRefresh = settingsLink.nextElementSibling?.querySelector('[data-refresh-button="true"]');
           if (!existingRefresh) {
-            const refreshButton = document.createElement('div');
+            let refreshButton = document.createElement('div');
             refreshButton.className = 'NavigationBar_navigationLink__3eAHA';
             refreshButton.style.cursor = 'pointer';
             refreshButton.setAttribute('data-refresh-button', 'true');
@@ -84,8 +84,6 @@ class SystemScriptManager(private val context: Context, private val webView: Web
     fun injectSettings() {
         val selector = "div.SettingsPanel_gameTab__n2hAG"
         val callback = """
-            // No need for a loop or timeout here.
-            // 'targetNode' is the element found by the MutationObserver.
             const existingButton = targetNode.querySelector('[data-script-manager="true"]');
             if (!existingButton) {
                 let container = document.createElement("div");
@@ -145,129 +143,121 @@ class SystemScriptManager(private val context: Context, private val webView: Web
 
     fun injectGreasemonkeyAPI() {
         val jsCode = """
-    (function() {
-        if (window.GM) return; // Prevent re-injection if GM already exists
-
-        // --- 1. Internal Storage & Legacy API (GM_*) ---
-        
-        const gmValues = {};
-
-        window.GM_setValue = function(key, value) {
-            gmValues[key] = value;
-            try {
-                localStorage.setItem('GM_' + key, JSON.stringify(value));
-            } catch(e) { console.error("GM_setValue error:", e); }
-        };
-
-        window.GM_getValue = function(key, defaultValue) {
-            if (key in gmValues) return gmValues[key];
-
-            const storedValue = localStorage.getItem('GM_' + key);
-            if (storedValue !== null) {
+        (function() {
+            if (window.GM) return;
+            const gmValues = {};
+    
+            window.GM_setValue = function(key, value) {
+                gmValues[key] = value;
                 try {
-                    const value = JSON.parse(storedValue);
-                    gmValues[key] = value;
-                    return value;
-                } catch(e) { console.error("GM_getValue error:", e); }
-            }
-            return defaultValue;
-        };
-        
-        window.GM_deleteValue = function(key) {
-            delete gmValues[key];
-            localStorage.removeItem('GM_' + key);
-        };
-
-        window.GM_addStyle = function(css) {
-            const style = document.createElement('style');
-            style.textContent = css;
-            document.head.appendChild(style);
-            return style;
-        };
-
-        window.GM_xmlhttpRequest = function(details) {
-            return new Promise((resolve, reject) => {
-                const xhr = new XMLHttpRequest();
-                xhr.open(details.method || 'GET', details.url, true);
-
-                if (details.headers) {
-                    for (const header in details.headers) {
-                        xhr.setRequestHeader(header, details.headers[header]);
+                    localStorage.setItem('GM_' + key, JSON.stringify(value));
+                } catch(e) { console.error("GM_setValue error:", e); }
+            };
+    
+            window.GM_getValue = function(key, defaultValue) {
+                if (key in gmValues) return gmValues[key];
+    
+                const storedValue = localStorage.getItem('GM_' + key);
+                if (storedValue !== null) {
+                    try {
+                        const value = JSON.parse(storedValue);
+                        gmValues[key] = value;
+                        return value;
+                    } catch(e) { console.error("GM_getValue error:", e); }
+                }
+                return defaultValue;
+            };
+            
+            window.GM_deleteValue = function(key) {
+                delete gmValues[key];
+                localStorage.removeItem('GM_' + key);
+            };
+    
+            window.GM_addStyle = function(css) {
+                const style = document.createElement('style');
+                style.textContent = css;
+                document.head.appendChild(style);
+                return style;
+            };
+    
+            window.GM_xmlhttpRequest = function(details) {
+                return new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open(details.method || 'GET', details.url, true);
+    
+                    if (details.headers) {
+                        for (const header in details.headers) {
+                            xhr.setRequestHeader(header, details.headers[header]);
+                        }
+                    }
+                    if (details.responseType) xhr.responseType = details.responseType;
+                    if (details.timeout) xhr.timeout = details.timeout;
+    
+                    const createResponse = (xhrInstance) => ({
+                        responseText: xhrInstance.responseText,
+                        responseXML: xhrInstance.responseXML,
+                        response: xhrInstance.response,
+                        status: xhrInstance.status,
+                        statusText: xhrInstance.statusText,
+                        readyState: xhrInstance.readyState,
+                        finalUrl: xhrInstance.responseURL,
+                        responseHeaders: xhrInstance.getAllResponseHeaders()
+                    });
+    
+                    xhr.onload = () => {
+                        const response = createResponse(xhr);
+                        if (details.onload) details.onload(response);
+                        resolve(response);
+                    };
+    
+                    xhr.onerror = () => {
+                        const response = createResponse(xhr);
+                        if (details.onerror) details.onerror(response);
+                        reject(response);
+                    };
+    
+                    xhr.onabort = () => {
+                        const response = createResponse(xhr);
+                        if (details.onabort) details.onabort(response);
+                        reject({aborted: true});
+                    };
+    
+                    xhr.ontimeout = () => {
+                        const response = createResponse(xhr);
+                        if (details.ontimeout) details.ontimeout(response);
+                        reject({timedout: true});
+                    };
+    
+                    if (details.onprogress) xhr.onprogress = details.onprogress;
+    
+                    xhr.send(details.data || null);
+                });
+            };
+    
+            window.GM = {
+                getValue: async function(key, defaultValue) {
+                    return window.GM_getValue(key, defaultValue);
+                },
+                setValue: async function(key, value) {
+                    return window.GM_setValue(key, value);
+                },
+                deleteValue: async function(key) {
+                    return window.GM_deleteValue(key);
+                },
+                xmlHttpRequest: window.GM_xmlhttpRequest,
+                info: {
+                    script: {
+                        version: "1.0.0",
+                        name: "Android Wrapper",
+                        handler: "AndroidWebView"
                     }
                 }
-                if (details.responseType) xhr.responseType = details.responseType;
-                if (details.timeout) xhr.timeout = details.timeout;
-
-                const createResponse = (xhrInstance) => ({
-                    responseText: xhrInstance.responseText,
-                    responseXML: xhrInstance.responseXML,
-                    response: xhrInstance.response,
-                    status: xhrInstance.status,
-                    statusText: xhrInstance.statusText,
-                    readyState: xhrInstance.readyState,
-                    finalUrl: xhrInstance.responseURL,
-                    responseHeaders: xhrInstance.getAllResponseHeaders()
-                });
-
-                xhr.onload = () => {
-                    const response = createResponse(xhr);
-                    if (details.onload) details.onload(response);
-                    resolve(response);
-                };
-
-                xhr.onerror = () => {
-                    const response = createResponse(xhr);
-                    if (details.onerror) details.onerror(response);
-                    reject(response);
-                };
-
-                xhr.onabort = () => {
-                    const response = createResponse(xhr);
-                    if (details.onabort) details.onabort(response);
-                    reject({aborted: true});
-                };
-
-                xhr.ontimeout = () => {
-                    const response = createResponse(xhr);
-                    if (details.ontimeout) details.ontimeout(response);
-                    reject({timedout: true});
-                };
-
-                if (details.onprogress) xhr.onprogress = details.onprogress;
-
-                xhr.send(details.data || null);
-            });
-        };
-
-        // --- 2. Modern API (GM object) ---
-        // This is what MWITools is looking for.
-        // The spec requires these to be Async (return Promises).
-        
-        window.GM = {
-            getValue: async function(key, defaultValue) {
-                return window.GM_getValue(key, defaultValue);
-            },
-            setValue: async function(key, value) {
-                return window.GM_setValue(key, value);
-            },
-            deleteValue: async function(key) {
-                return window.GM_deleteValue(key);
-            },
-            xmlHttpRequest: window.GM_xmlhttpRequest,
-            info: {
-                script: {
-                    version: "1.0.0",
-                    name: "Android Wrapper",
-                    handler: "AndroidWebView"
-                }
-            }
-        };
-        
-        // Expose unsafeWindow for compatibility
-        window.unsafeWindow = window;
-        
-    })();
-    """.trimIndent()
+            };
+    
+            window.unsafeWindow = window;
+    
+        })();
+        """.trimIndent()
         webView.evaluateJavascript(jsCode, null)
     }
 }

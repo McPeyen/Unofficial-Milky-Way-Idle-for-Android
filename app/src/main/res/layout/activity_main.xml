@@ -1,14 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fitsSystemWindows="true"
-    tools:context=".MainActivity">
+    android:layout_height="match_parent">
+
+    <!-- This is the main background ImageView for the whole screen -->
+    <!-- It uses centerCrop to ensure the image is never squashed. -->
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:src="@drawable/background"
+        android:contentDescription="@null" />
 
     <WebView
         android:id="@+id/webview"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:background="@android:color/transparent" /> <!-- Make WebView transparent to see the background -->
 
-</RelativeLayout>
+    <!-- Your loading overlay FrameLayout -->
+    <FrameLayout
+        android:id="@+id/loading_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="visible">
+        
+        <!-- THIS IS THE KEY CHANGE -->
+        <!-- We use an ImageView here for the overlay's background instead of setting it on the FrameLayout. -->
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/loading_background"
+            android:scaleType="centerCrop"
+            android:contentDescription="@null"
+            />
+
+        <!-- The rest of your loading UI sits on top of the overlay's background -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ProgressBar
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:indeterminateTint="#FFFFFF" />
+
+            <TextView
+                android:id="@+id/loading_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Loading Milky Way..."
+                android:textColor="#FFFFFF" />
+        </LinearLayout>
+    </FrameLayout>
+
+</FrameLayout>
