@@ -65,7 +65,7 @@ class UserScriptManager(
                         val lastUpdated = script.getLong("lastUpdated")
                         val currentTime = System.currentTimeMillis()
 
-                        if (currentTime - lastUpdated > UPDATE_INTERVAL) {
+                        if (lastUpdated == 0L) {
                             val url = script.getString("url")
                             val filename = script.getString("filename")
                             Log.d(TAG, "Updating script: $filename")
@@ -202,6 +202,29 @@ class UserScriptManager(
         }
     }
 
+    suspend fun saveScriptOrder(scripts: List<ScriptInfo>) = withContext(Dispatchers.IO) {
+        try {
+            val config = loadConfig()
+
+            val jsonArray = JSONArray()
+            for (script in scripts) {
+                val scriptJson = JSONObject()
+                scriptJson.put("name", script.name)
+                scriptJson.put("filename", script.filename)
+                scriptJson.put("enabled", script.isEnabled)
+                scriptJson.put("custom", script.isCustom)
+                scriptJson.put("url", script.url)
+                scriptJson.put("lastUpdated", script.lastUpdated)
+                jsonArray.put(scriptJson)
+            }
+
+            config.put("scripts", jsonArray)
+            saveConfig(config)
+        } catch (e: Exception) {
+            android.util.Log.e("UserScriptManager", "Error saving script order", e)
+        }
+    }
+
     suspend fun getAllScripts(): List<ScriptInfo> = withContext(Dispatchers.IO) {
         try {
             val config = loadConfig()
@@ -279,7 +302,7 @@ class UserScriptManager(
                     if (true) {
                         clearInterval(pollForGameReady_MASTER_$$);
                         console.log('Wrapper: Game UI is ready. Injecting all ${scriptContents.size} enabled scripts.');
-            
+
                         const scriptsToInject = ${scriptsJsonArray};
 
                         scriptsToInject.forEach((scriptContent, index) => {
@@ -306,25 +329,10 @@ class UserScriptManager(
             scriptsDir.mkdir()
         }
 
-        // Create initial config file if it doesn't exist
         val configFile = File(context.filesDir, SCRIPTS_CONFIG)
         if (!configFile.exists()) {
             try {
-                // Initialize with default MWITools script
                 val scripts = JSONArray()
-
-                val lzString = JSONObject()
-                lzString.put("name", "MWITools-LZString")
-                lzString.put(
-                    "url",
-                    "https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"
-                )
-                lzString.put("filename", "mwitools_lzstring.js")
-                lzString.put("enabled", false)
-                lzString.put("lastUpdated", 0)
-                scripts.put(lzString)
-
-                //https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js
 
                 val mwiDependencies = JSONObject()
                 mwiDependencies.put("name", "MWITools-Dependencies")
@@ -367,7 +375,6 @@ class UserScriptManager(
             return@withContext try {
                 val file = File(File(context.filesDir, SCRIPTS_DIR), filename)
 
-                // Setup connection
                 val url = URL(scriptUrl)
                 connection = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "GET"
@@ -377,7 +384,6 @@ class UserScriptManager(
                     instanceFollowRedirects = true
                 }
 
-                // Handle response
                 val responseCode = connection.responseCode
                 if (responseCode !in 200..299) {
                     Log.e(
@@ -387,7 +393,6 @@ class UserScriptManager(
                     false
                 }
 
-                // Get content length for progress tracking (if available)
                 val contentLength = connection.contentLength
                 if (contentLength > 0) {
                     Log.d(TAG, "Downloading script ($contentLength bytes): $filename")
@@ -395,10 +400,9 @@ class UserScriptManager(
                     Log.d(TAG, "Downloading script (unknown size): $filename")
                 }
 
-                // Use Kotlin's extension functions to handle streams safely
                 connection.inputStream.use { input ->
                     FileOutputStream(file).use { output ->
-                        val buffer = ByteArray(8192) // Larger buffer for better performance
+                        val buffer = ByteArray(8192)
                         var bytesRead: Int
                         var totalBytesRead = 0
 
@@ -469,13 +473,34 @@ class UserScriptManager(
         fos.close()
     }
 
+    suspend fun updateScriptContentFromUrl(script: ScriptInfo, index: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            downloadScript(script.url, script.filename)
+
+            val config = loadConfig()
+            val scriptsArray = config.getJSONArray("scripts")
+            val scriptJson = scriptsArray.getJSONObject(index)
+
+            scriptJson.put("lastUpdated", System.currentTimeMillis())
+
+            scriptsArray.put(index, scriptJson)
+            config.put("scripts", scriptsArray)
+            saveConfig(config)
+
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update script at index $index", e)
+            false
+        }
+    }
+
     data class ScriptInfo(
-        val name: String,
-        val filename: String,
-        val isEnabled: Boolean,
-        val isCustom: Boolean,
-        val url: String,
-        val lastUpdated: Long
+        var name: String,
+        var filename: String,
+        var isEnabled: Boolean,
+        var isCustom: Boolean,
+        var url: String,
+        var lastUpdated: Long
     )
 
     companion object {
@@ -483,6 +508,6 @@ class UserScriptManager(
         private const val PREFS_NAME = "ScriptPrefs"
         private const val SCRIPTS_CONFIG = "scripts_config.json"
         private const val SCRIPTS_DIR = "scripts"
-        private val UPDATE_INTERVAL = TimeUnit.HOURS.toMillis(12) // Update scripts every 12 hours
+        private val UPDATE_INTERVAL = TimeUnit.HOURS.toMillis(12)
     }
 }

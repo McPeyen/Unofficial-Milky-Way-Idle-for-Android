@@ -14,7 +14,6 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -23,7 +22,7 @@ import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
-    private lateinit var loadingOverlay: FrameLayout // Reference to the overlay
+    private lateinit var loadingOverlay: FrameLayout
     private lateinit var userScriptManager: UserScriptManager
     private lateinit var systemScriptManager: SystemScriptManager
     private var pageFinishedLoading = false
@@ -34,7 +33,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         webView = findViewById(R.id.webview)
-        loadingOverlay = findViewById(R.id.loading_overlay) // Find the view
+        loadingOverlay = findViewById(R.id.loading_overlay)
 
         setupWebViewSettings()
 
@@ -83,26 +82,32 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupWebViewClient(): WebViewClient {
         return object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+            override fun shouldOverrideUrlLoading(
+                view: WebView?,
+                request: WebResourceRequest?
+            ): Boolean {
                 return false
             }
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                // SHOW the loading screen immediately when any page starts loading (including refreshes)
-                showLoadingScreen()
 
-                pageFinishedLoading = false
-                injectDocumentStartScripts()
+                if (url?.startsWith("https://www.milkywayidle.com") == true) {
+                    showLoadingScreen()
+                    pageFinishedLoading = false
+                    injectDocumentStartScripts()
+                }
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                // Do NOT hide the loading screen here yet.
-                // We wait for the scripts to inject in the method below.
-                if (!pageFinishedLoading) {
+                val isMwi = url?.startsWith("https://www.milkywayidle.com") == true
+
+                if (isMwi && !pageFinishedLoading) {
                     injectDocumentEndScripts()
                     pageFinishedLoading = true
+                } else if (!isMwi) {
+                    hideLoadingScreen()
                 }
             }
         }
@@ -110,6 +115,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun injectDocumentStartScripts() {
         lifecycleScope.launch {
+            systemScriptManager.injectLZString()
             systemScriptManager.injectGreasemonkeyAPI()
         }
     }
@@ -120,7 +126,6 @@ class MainActivity : AppCompatActivity() {
 
             val enabledCount = userScriptManager.getEnabledScriptCount()
             if (enabledCount > 0) {
-                // Update loading screen text
                 runOnUiThread {
                     findViewById<TextView>(R.id.loading_text).text =
                         "Loading Milky Way...\nInjecting $enabledCount script(s)..."
@@ -145,7 +150,6 @@ class MainActivity : AppCompatActivity() {
     private fun showLoadingScreen() {
         loadingOverlay.alpha = 1f
         loadingOverlay.visibility = View.VISIBLE
-        // Reset text when showing
         findViewById<TextView>(R.id.loading_text).text = "Loading Milky Way..."
     }
 

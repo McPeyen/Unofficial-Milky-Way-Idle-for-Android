@@ -29,18 +29,18 @@
                     android:id="@+id/script_name"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:text="Script Name"
                     android:textAppearance="@style/TextAppearance.AppCompat.Medium"
                     android:textColor="@color/text_primary"
-                    android:textStyle="bold"
-                    android:text="Script Name" />
+                    android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/script_type"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:text="URL Script"
                     android:textAppearance="@style/TextAppearance.AppCompat.Small"
-                    android:textColor="@color/text_secondary"
-                    android:text="URL Script" />
+                    android:textColor="@color/text_secondary" />
 
                 <TextView
                     android:id="@+id/script_url"
@@ -48,9 +48,9 @@
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:maxLines="1"
+                    android:text="https://example.com/script.js"
                     android:textAppearance="@style/TextAppearance.AppCompat.Small"
-                    android:textColor="@color/text_secondary"
-                    android:text="https://example.com/script.js" />
+                    android:textColor="@color/text_secondary" />
 
                 <TextView
                     android:id="@+id/script_last_updated"
@@ -69,6 +69,19 @@
                 android:layout_height="wrap_content"
                 android:gravity="end"
                 android:orientation="vertical">
+
+                <ImageButton
+                    android:id="@+id/script_update_button"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginBottom="4dp"
+                    android:layout_gravity="end"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Update Script"
+                    android:padding="8dp"
+                    android:scaleType="fitCenter"
+                    android:src="@android:drawable/ic_popup_sync"
+                    app:tint="@color/text_primary" />
 
                 <LinearLayout
                     android:layout_width="wrap_content"

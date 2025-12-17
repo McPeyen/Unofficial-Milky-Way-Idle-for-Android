@@ -9,7 +9,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
-import android.widget.CompoundButton
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.Switch
@@ -19,12 +18,14 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.Toolbar
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
+import java.util.Collections
 import java.util.Date
 
 class ScriptManagerActivity : AppCompatActivity() {
@@ -46,16 +47,47 @@ class ScriptManagerActivity : AppCompatActivity() {
         userScriptManager = UserScriptManager(this, lifecycleScope)
 
         recyclerView = findViewById(R.id.recycler_view)
-        recyclerView.setLayoutManager(LinearLayoutManager(this))
+        recyclerView.layoutManager = LinearLayoutManager(this)
 
         adapter = ScriptAdapter()
-        recyclerView.setAdapter(adapter)
+        recyclerView.adapter = adapter
+
+        val itemTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+            ItemTouchHelper.UP or ItemTouchHelper.DOWN, 0
+        ) {
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean {
+                val fromPos = viewHolder.adapterPosition
+                val toPos = target.adapterPosition
+
+                Collections.swap(scripts, fromPos, toPos)
+                adapter.notifyItemMoved(fromPos, toPos)
+                return true
+            }
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+            }
+
+            override fun clearView(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder
+            ) {
+                super.clearView(recyclerView, viewHolder)
+                lifecycleScope.launch {
+                    userScriptManager.saveScriptOrder(scripts)
+                }
+            }
+        })
+        itemTouchHelper.attachToRecyclerView(recyclerView)
 
         val addUrlButton: Button = findViewById(R.id.add_url_button)
         val addCustomButton: Button = findViewById(R.id.add_custom_button)
 
-        addUrlButton.setOnClickListener { v: View? -> showAddUrlDialog() }
-        addCustomButton.setOnClickListener { v: View? -> showAddCustomDialog() }
+        addUrlButton.setOnClickListener { showAddUrlDialog() }
+        addCustomButton.setOnClickListener { showAddCustomDialog() }
 
         lifecycleScope.launch {
             userScriptManager.updateEnabledScripts {
@@ -64,12 +96,10 @@ class ScriptManagerActivity : AppCompatActivity() {
         }
     }
 
-    // ADD THIS HELPER FUNCTION to format the timestamp
     private fun formatTimestamp(timestamp: Long): String {
         if (timestamp <= 0L) {
             return "Last updated: Never"
         }
-        // This format looks like "2025-06-10 13:30"
         val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm")
         return "Last updated: " + sdf.format(Date(timestamp))
     }
@@ -111,24 +141,19 @@ class ScriptManagerActivity : AppCompatActivity() {
             val url = urlInput.text.toString().trim { it <= ' ' }
             val enabled = enabledCheckbox.isChecked
 
-            // Pattern for URLs like https://greasyfork.org/{lang}/scripts/{number}-{scriptname}
             val baseUrlPattern =
                 """https://greasyfork\.org/[^/]+/scripts/\d+(?:-[^/]+)?$""".toRegex()
 
-            // Pattern for URLs like https://greasyfork.org/{lang}/scripts/{number}-{scriptname}/code
             val codeUrlPattern =
                 """https://greasyfork\.org/[^/]+/scripts/\d+(?:-[^/]+)?/code$""".toRegex()
 
-            // Modify URL based on the pattern
             val modifiedUrl = when {
                 baseUrlPattern.matches(url) -> "$url/code/script.user.js"
                 codeUrlPattern.matches(url) -> "$url/script.user.js"
                 else -> url
             }
 
-            // Validate that URL ends with .js
             if (!modifiedUrl.endsWith(".js")) {
-                // Show error message
                 urlInput.error = "URL must end with .js"
                 return@setOnClickListener
             }
@@ -142,7 +167,6 @@ class ScriptManagerActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            // Show loading toast
             Toast.makeText(
                 this@ScriptManagerActivity,
                 "Downloading script...",
@@ -151,7 +175,6 @@ class ScriptManagerActivity : AppCompatActivity() {
             lifecycleScope.launch {
                 val success = userScriptManager.addScriptFromUrl(name, modifiedUrl, enabled)
 
-                // Switch to main thread for UI operations
                 withContext(Dispatchers.Main) {
                     if (success) {
                         Toast.makeText(
@@ -159,7 +182,6 @@ class ScriptManagerActivity : AppCompatActivity() {
                             "Script added successfully",
                             Toast.LENGTH_SHORT
                         ).show()
-                        // Launch another coroutine for loadScripts if it's suspend
                         lifecycleScope.launch {
                             loadScripts()
                         }
@@ -268,7 +290,6 @@ class ScriptManagerActivity : AppCompatActivity() {
                             userScriptManager.removeScript(script.filename)
                             loadScripts()
 
-                            // Toast will automatically run on main thread since we're using lifecycleScope
                             Toast.makeText(
                                 this@ScriptManagerActivity,
                                 "Script deleted",
@@ -297,8 +318,6 @@ class ScriptManagerActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-
-            // Delete old script and add new one with updated info
             lifecycleScope.launch {
                 userScriptManager.removeScript(script.filename)
 
@@ -380,8 +399,6 @@ class ScriptManagerActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-
-            // Delete old script and add new one with updated info
             lifecycleScope.launch {
                 userScriptManager.removeScript(script.filename)
 
@@ -405,19 +422,42 @@ class ScriptManagerActivity : AppCompatActivity() {
         }
     }
 
-    private inner class ScriptAdapter : RecyclerView.Adapter<ScriptAdapter.ViewHolder?>() {
+    private fun performUpdate(script: UserScriptManager.ScriptInfo) {
+        if (script.isCustom || script.url.isEmpty()) {
+            Toast.makeText(this, "Cannot update custom scripts", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val index = scripts.indexOf(script)
+        if (index == -1) return
+
+        Toast.makeText(this, "Updating ${script.name}...", Toast.LENGTH_SHORT).show()
+
+        lifecycleScope.launch {
+            val success = userScriptManager.updateScriptContentFromUrl(script, index)
+
+            withContext(Dispatchers.Main) {
+                if (success) {
+                    Toast.makeText(this@ScriptManagerActivity, "Updated successfully", Toast.LENGTH_SHORT).show()
+                    loadScripts()
+                } else {
+                    Toast.makeText(this@ScriptManagerActivity, "Update failed", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private inner class ScriptAdapter : RecyclerView.Adapter<ScriptAdapter.ViewHolder>() {
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
             val view = LayoutInflater.from(parent.context)
                 .inflate(R.layout.item_script, parent, false)
             return ViewHolder(view)
         }
 
-        override fun getItemCount(): Int {
-            return scripts.size
-        }
+        override fun getItemCount(): Int = scripts.size
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val script: UserScriptManager.ScriptInfo = scripts[position]
+            val script = scripts[position]
 
             holder.nameText.text = script.name
             holder.typeText.text = if (script.isCustom) "Custom Script" else "URL Script"
@@ -425,30 +465,38 @@ class ScriptManagerActivity : AppCompatActivity() {
 
             if (script.isCustom) {
                 holder.urlText.visibility = View.GONE
+                holder.updateButton.visibility = View.GONE
             } else {
                 holder.urlText.visibility = View.VISIBLE
                 holder.urlText.text = script.url
+                holder.updateButton.visibility = View.VISIBLE
             }
 
+            holder.enabledSwitch.setOnCheckedChangeListener(null) // Clear listener to prevent recycling bugs
             holder.enabledSwitch.isChecked = script.isEnabled
-
-            holder.enabledSwitch.setOnCheckedChangeListener { buttonView: CompoundButton?, isChecked: Boolean ->
+            holder.enabledSwitch.setOnCheckedChangeListener { _, isChecked ->
                 lifecycleScope.launch {
                     userScriptManager.setScriptEnabled(script.filename, isChecked)
+                    script.isEnabled = isChecked
                 }
             }
 
-            holder.itemView.setOnClickListener { v ->
+            holder.updateButton.setOnClickListener {
+                performUpdate(script)
+            }
+
+            holder.itemView.setOnClickListener {
                 showEditScriptDialog(script)
             }
         }
 
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            var nameText: TextView = view.findViewById(R.id.script_name)
-            var typeText: TextView = view.findViewById(R.id.script_type)
-            var urlText: TextView = view.findViewById(R.id.script_url)
-            var lastUpdatedText: TextView = view.findViewById(R.id.script_last_updated)
-            var enabledSwitch: Switch = view.findViewById(R.id.script_enabled)
+            val nameText: TextView = view.findViewById(R.id.script_name)
+            val typeText: TextView = view.findViewById(R.id.script_type)
+            val urlText: TextView = view.findViewById(R.id.script_url)
+            val lastUpdatedText: TextView = view.findViewById(R.id.script_last_updated)
+            val enabledSwitch: Switch = view.findViewById(R.id.script_enabled)
+            val updateButton: ImageButton = view.findViewById(R.id.script_update_button)
         }
     }
 }
