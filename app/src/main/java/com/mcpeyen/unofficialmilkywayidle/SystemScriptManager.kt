@@ -44,178 +44,39 @@ class SystemScriptManager(private val context: Context, private val webView: Web
         webView.evaluateJavascript(jsCode, null)
     }
 
-    fun injectRefreshGesture() {
-        val selector = "div.GamePage_headerPanel__1T_cA"
-        val callback = """
-        // The rest of your original injectRefreshGesture JS code goes here.
-        // It's now guaranteed to run only when 'targetNode' exists.
-        const mcGestureRefresh = () => {
-            let refreshIndicator = document.getElementById('mc-refresh-indicator');
-            if (!refreshIndicator) {
-                refreshIndicator = document.createElement('div');
-                refreshIndicator.id = 'mc-refresh-indicator';
-                refreshIndicator.style.cssText = `
-                    position: absolute;
-                    top: 0;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    width: 40px;
-                    height: 40px;
-                    border-radius: 50%;
-                    background-color: #4357af;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    z-index: 9999;
-                    opacity: 0;
-                    transition: opacity 0.2s;
-                    pointer-events: none;
-                `;
-
-                const svgNS = "http://www.w3.org/2000/svg";
-                const progressCircle = document.createElementNS(svgNS, 'svg');
-                progressCircle.setAttribute('width', '32');
-                progressCircle.setAttribute('height', '32');
-                progressCircle.setAttribute('viewBox', '0 0 32 32');
-                progressCircle.style.cssText = `transform: rotate(-90deg);`;
-
-                const backgroundCircle = document.createElementNS(svgNS, 'circle');
-                backgroundCircle.setAttribute('cx', '16');
-                backgroundCircle.setAttribute('cy', '16');
-                backgroundCircle.setAttribute('r', '12');
-                backgroundCircle.setAttribute('stroke', 'rgba(255, 255, 255, 0.3)');
-                backgroundCircle.setAttribute('stroke-width', '3');
-                backgroundCircle.setAttribute('fill', 'none');
-
-                const progressArc = document.createElementNS(svgNS, 'circle');
-                progressArc.id = 'mc-progress-arc';
-                progressArc.setAttribute('cx', '16');
-                progressArc.setAttribute('cy', '16');
-                progressArc.setAttribute('r', '12');
-                progressArc.setAttribute('stroke', '#ffffff');
-                progressArc.setAttribute('stroke-width', '3');
-                progressArc.setAttribute('fill', 'none');
-
-                const circumference = 2 * Math.PI * 12;
-                progressArc.setAttribute('stroke-dasharray', circumference.toString());
-                progressArc.setAttribute('stroke-dashoffset', circumference.toString());
-
-                progressCircle.appendChild(backgroundCircle);
-                progressCircle.appendChild(progressArc);
-                refreshIndicator.appendChild(progressCircle);
-                document.body.appendChild(refreshIndicator);
-            }
-
-            // 'targetNode' is passed directly from the MutationObserver callback
-            window.headerHeight = targetNode.offsetHeight;
-            const REFRESH_THRESHOLD = 200;
-
-            targetNode.addEventListener('touchstart', function(e) {
-                window.pullStartY = e.touches[0].clientY;
-                refreshIndicator.style.transition = 'none';
-                document.getElementById('mc-progress-arc').style.transition = 'none';
-            });
-
-            targetNode.addEventListener('touchmove', function(e) {
-                if (window.pullStartY) {
-                    var pullDistance = e.touches[0].clientY - window.pullStartY;
-                    if (pullDistance > 0) {
-                        refreshIndicator.style.opacity = Math.min(pullDistance / 100, 1).toString();
-                        refreshIndicator.style.transform = `translateX(-50%) scale(${'$'}{Math.min(0.8 + (pullDistance / 250), 1.2)})`;
-
-                        const progressPercentage = Math.min(pullDistance / REFRESH_THRESHOLD, 1);
-                        const progressArc = document.getElementById('mc-progress-arc');
-                        const circumference = 2 * Math.PI * 12;
-                        const dashOffset = circumference * (1 - progressPercentage);
-                        progressArc.setAttribute('stroke-dashoffset', dashOffset.toString());
-
-                        if (pullDistance > REFRESH_THRESHOLD) {
-                            window.Android.refreshPage();
-                            window.pullStartY = null;
-
-                            refreshIndicator.style.opacity = '1';
-                            refreshIndicator.style.transition = 'opacity 0.5s';
-
-                            const progressArc = document.getElementById('mc-progress-arc');
-                            progressArc.setAttribute('stroke-dashoffset', '0');
-                            progressArc.style.transition = 'stroke-dashoffset 0.3s';
-                            refreshIndicator.style.animation = 'mc-spin 1s linear infinite';
-
-                            setTimeout(() => {
-                                refreshIndicator.style.opacity = '0';
-                                refreshIndicator.style.animation = '';
-                            }, 1000);
-                        }
-                    }
-                }
-            });
-
-            targetNode.addEventListener('touchend', function() {
-                if (window.pullStartY) {
-                    refreshIndicator.style.transition = 'opacity 0.3s, transform 0.3s';
-                    refreshIndicator.style.opacity = '0';
-                    refreshIndicator.style.transform = 'translateX(-50%) scale(1)';
-
-                    const progressArc = document.getElementById('mc-progress-arc');
-                    progressArc.style.transition = 'stroke-dashoffset 0.3s';
-                    const circumference = 2 * Math.PI * 12;
-                    progressArc.setAttribute('stroke-dashoffset', circumference.toString());
-                    refreshIndicator.style.animation = '';
-                    window.pullStartY = null;
-                }
-            });
-
-            if (!document.getElementById('mc-refresh-styles')) {
-                const styleTag = document.createElement('style');
-                styleTag.id = 'mc-refresh-styles';
-                styleTag.textContent = `
-                    @keyframes mc-spin {
-                        0% { transform: translateX(-50%) rotate(0deg); }
-                        100% { transform: translateX(-50%) rotate(360deg); }
-                    }
-                `;
-                document.head.appendChild(styleTag);
-            }
-        };
-        mcGestureRefresh();
-        """
-        waitForElement(selector, callback)
-    }
-
     fun injectRefreshButton() {
-        val selector = "div.SettingsPanel_gameTab__n2hAG"
+        val selector = ".NavigationBar_navigationLink__3eAHA"
         val callback = """
-            // No need for a loop or timeout here.
-            // 'targetNode' is the element found by the MutationObserver.
-            const existingButton = targetNode.querySelector('[data-refresh-button="true"]');
-            if (!existingButton) {
-                let refreshContainer = document.createElement("div");
-                refreshContainer.setAttribute("data-refresh-button", "true");
-                refreshContainer.style.cssText = "display: flex; align-items: center; margin: 10px 0;"; // Added some margin
+        const settingsLink = Array.from(document.querySelectorAll('.NavigationBar_navigationLink__3eAHA'))
+          .find(link => link.textContent.includes('Settings'));
 
-                let label = document.createElement("span");
-                label.innerHTML = "Reload: ";
-                label.style.marginRight = "10px";
+        if (settingsLink) {
+          const existingRefresh = settingsLink.nextElementSibling?.querySelector('[data-refresh-button="true"]');
+          if (!existingRefresh) {
+            const refreshButton = document.createElement('div');
+            refreshButton.className = 'NavigationBar_navigationLink__3eAHA';
+            refreshButton.style.cursor = 'pointer';
+            refreshButton.setAttribute('data-refresh-button', 'true');
 
-                let refreshButton = document.createElement("button");
-                refreshButton.style.cssText = "background-color: #4357af; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;";
-
-                refreshButton.innerHTML = `
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
-                        <path d="M23 4v6h-6"></path>
-                        <path d="M1 20v-6h6"></path>
-                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path>
-                        <path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                    </svg>
-                    Reload Game
-                `;
-
-                refreshButton.addEventListener("click", () => window.Android.refreshPage());
-
-                refreshContainer.appendChild(label);
-                refreshContainer.appendChild(refreshButton);
-                targetNode.insertAdjacentElement("beforeend", refreshContainer);
-            }
+            refreshButton.innerHTML = `
+              <div class="NavigationBar_nav__3uuUl">
+                <svg role="img" aria-label="Reload Game" class="Icon_icon__2LtL_ Icon_small__2bxvH" width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                </svg>
+                <div class="NavigationBar_contentContainer__1x6WS">
+                  <div class="NavigationBar_textContainer__7TdaI">
+                    <span class="NavigationBar_label__1uH-y">Reload Game</span>
+                  </div>
+                </div>
+              </div>
+              <div class="NavigationBar_subSkills__37qWb"></div>
+            `;
+            refreshButton.addEventListener('click', () => {
+              window.Android.refreshPage();
+            });
+            settingsLink.parentNode.insertBefore(refreshButton, settingsLink.nextSibling);
+          }
+        }
         """
         waitForElement(selector, callback)
     }

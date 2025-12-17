@@ -14,7 +14,6 @@ import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -132,7 +131,6 @@ class MainActivity : AppCompatActivity() {
             }
 
             systemScriptManager.injectRefreshButton()
-            systemScriptManager.injectRefreshGesture()
             systemScriptManager.injectSettings()
             systemScriptManager.disableLongClick()
         }
