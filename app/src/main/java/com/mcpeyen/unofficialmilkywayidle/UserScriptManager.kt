@@ -313,6 +313,19 @@ class UserScriptManager(
                 // Initialize with default MWITools script
                 val scripts = JSONArray()
 
+                val lzString = JSONObject()
+                lzString.put("name", "MWITools-LZString")
+                lzString.put(
+                    "url",
+                    "https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"
+                )
+                lzString.put("filename", "mwitools_lzstring.js")
+                lzString.put("enabled", false)
+                lzString.put("lastUpdated", 0)
+                scripts.put(lzString)
+
+                //https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js
+
                 val mwiDependencies = JSONObject()
                 mwiDependencies.put("name", "MWITools-Dependencies")
                 mwiDependencies.put(
