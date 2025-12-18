@@ -136,7 +136,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            systemScriptManager.injectRefreshButton()
+            systemScriptManager.injectProfileButtons()
             systemScriptManager.injectSettings()
             systemScriptManager.disableLongClick()
 
