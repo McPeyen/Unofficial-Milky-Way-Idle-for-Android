@@ -10,44 +10,40 @@ class SystemScriptManager(private val context: Context, private val webView: Web
         val selector = ".NavigationBar_navigationLink__3eAHA"
         val callback = """
         (function() {
-            const navLinks = Array.from(document.querySelectorAll('.NavigationBar_navigationLink__3eAHA'));
-            const settingsLink = navLinks.find(link => link.textContent.includes('Settings'));
-    
-            if (settingsLink && !document.querySelector('[data-refresh-button="true"]')) {
-                let refreshButton = document.createElement('div');
-                
-                // We use a custom class for the outer wrapper so it doesn't 
-                // interfere with the other script's querySelectorAll count.
-                refreshButton.className = 'custom-nav-wrapper'; 
-                refreshButton.setAttribute('data-refresh-button', 'true');
-                refreshButton.style.cursor = 'pointer';
-    
-                refreshButton.innerHTML = `
-                    <div class="NavigationBar_navigationLink__3eAHA">
-                        <div class="NavigationBar_nav__3uuUl">
-                            <svg role="img" aria-label="Reload Game" class="Icon_icon__2LtL_ Icon_small__2bxvH" width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
-                            </svg>
-                            <div class="NavigationBar_contentContainer__1x6WS">
-                                <div class="NavigationBar_textContainer__7TdaI">
-                                    <span class="NavigationBar_label__1uH-y">Reload Game</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-    
-                refreshButton.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation(); // Prevent the click from reaching the game's internal listeners
-                    window.Android.refreshPage();
-                });
-    
-                // FIX: Insert BEFORE settings so Settings stays at the end of the array
-                settingsLink.parentNode.insertBefore(refreshButton, settingsLink);
+        // 1. The Refresh Logic
+        const handleRefresh = () => {
+            console.log("Refreshing...");
+            window.Android.refreshPage();
+        };
+
+        const injectRefreshButton = (menu) => {
+            if (menu.querySelector('.refresh-button-injected')) return;
+
+            const refreshBtn = document.createElement('button');
+            refreshBtn.className = 'Button_button__1Fe9z Button_fullWidth__17pVU refresh-button-injected';
+            refreshBtn.innerHTML = '<span>Reload Game</span>';
+
+
+            // Add the click event
+            refreshBtn.onclick = handleRefresh;
+
+            // Find the title element to insert right after it
+            const title = menu.querySelector('.Header_menuTitle__3NUq1');
+            if (title) {
+                title.insertAdjacentElement('afterend', refreshBtn);
             }
+        };
+
+        const observer = new MutationObserver((mutations) => {
+            const menu = document.querySelector('.Header_avatarMenu__1I5qH');
+            if (menu) {
+                injectRefreshButton(menu);
+            }
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
         })();
-        """
+            """
         waitForElement(selector, callback)
     }
 
@@ -132,10 +128,10 @@ class SystemScriptManager(private val context: Context, private val webView: Web
                     localStorage.setItem('GM_' + key, JSON.stringify(value));
                 } catch(e) { console.error("GM_setValue error:", e); }
             };
-    
+
             window.GM_getValue = function(key, defaultValue) {
                 if (key in gmValues) return gmValues[key];
-    
+
                 const storedValue = localStorage.getItem('GM_' + key);
                 if (storedValue !== null) {
                     try {
@@ -146,24 +142,24 @@ class SystemScriptManager(private val context: Context, private val webView: Web
                 }
                 return defaultValue;
             };
-            
+
             window.GM_deleteValue = function(key) {
                 delete gmValues[key];
                 localStorage.removeItem('GM_' + key);
             };
-    
+
             window.GM_addStyle = function(css) {
                 const style = document.createElement('style');
                 style.textContent = css;
                 document.head.appendChild(style);
                 return style;
             };
-    
+
             window.GM_xmlhttpRequest = function(details) {
                 return new Promise((resolve, reject) => {
                     const xhr = new XMLHttpRequest();
                     xhr.open(details.method || 'GET', details.url, true);
-    
+
                     if (details.headers) {
                         for (const header in details.headers) {
                             xhr.setRequestHeader(header, details.headers[header]);
@@ -171,7 +167,7 @@ class SystemScriptManager(private val context: Context, private val webView: Web
                     }
                     if (details.responseType) xhr.responseType = details.responseType;
                     if (details.timeout) xhr.timeout = details.timeout;
-    
+
                     const createResponse = (xhrInstance) => ({
                         responseText: xhrInstance.responseText,
                         responseXML: xhrInstance.responseXML,
@@ -182,37 +178,37 @@ class SystemScriptManager(private val context: Context, private val webView: Web
                         finalUrl: xhrInstance.responseURL,
                         responseHeaders: xhrInstance.getAllResponseHeaders()
                     });
-    
+
                     xhr.onload = () => {
                         const response = createResponse(xhr);
                         if (details.onload) details.onload(response);
                         resolve(response);
                     };
-    
+
                     xhr.onerror = () => {
                         const response = createResponse(xhr);
                         if (details.onerror) details.onerror(response);
                         reject(response);
                     };
-    
+
                     xhr.onabort = () => {
                         const response = createResponse(xhr);
                         if (details.onabort) details.onabort(response);
                         reject({aborted: true});
                     };
-    
+
                     xhr.ontimeout = () => {
                         const response = createResponse(xhr);
                         if (details.ontimeout) details.ontimeout(response);
                         reject({timedout: true});
                     };
-    
+
                     if (details.onprogress) xhr.onprogress = details.onprogress;
-    
+
                     xhr.send(details.data || null);
                 });
             };
-    
+
             window.GM = {
                 getValue: async function(key, defaultValue) {
                     return window.GM_getValue(key, defaultValue);
@@ -232,9 +228,9 @@ class SystemScriptManager(private val context: Context, private val webView: Web
                     }
                 }
             };
-    
+
             window.unsafeWindow = window;
-    
+
         })();
         """.trimIndent()
         webView.evaluateJavascript(jsCode, null)
