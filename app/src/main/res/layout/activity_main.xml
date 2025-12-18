@@ -4,8 +4,6 @@
     android:layout_height="match_parent"
     android:fitsSystemWindows="true">
 
-    <!-- This is the main background ImageView for the whole screen -->
-    <!-- It uses centerCrop to ensure the image is never squashed. -->
     <ImageView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -17,9 +15,8 @@
         android:id="@+id/webview"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@android:color/transparent" /> <!-- Make WebView transparent to see the background -->
+        android:background="@android:color/transparent" />
 
-    <!-- Your loading overlay FrameLayout -->
     <FrameLayout
         android:id="@+id/loading_overlay"
         android:layout_width="match_parent"
@@ -27,9 +24,7 @@
         android:clickable="true"
         android:focusable="true"
         android:visibility="visible">
-        
-        <!-- THIS IS THE KEY CHANGE -->
-        <!-- We use an ImageView here for the overlay's background instead of setting it on the FrameLayout. -->
+
         <ImageView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
@@ -38,7 +33,6 @@
             android:contentDescription="@null"
             />
 
-        <!-- The rest of your loading UI sits on top of the overlay's background -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
