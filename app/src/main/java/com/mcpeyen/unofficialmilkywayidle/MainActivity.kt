@@ -26,7 +26,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var userScriptManager: UserScriptManager
     private lateinit var systemScriptManager: SystemScriptManager
     private var pageFinishedLoading = false
-    private var pendingCharacterId: String? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -131,6 +130,7 @@ class MainActivity : AppCompatActivity() {
                     findViewById<TextView>(R.id.loading_text).text =
                         "Loading Milky Way...\nInjecting $enabledCount script(s)..."
                 }
+
                 userScriptManager.updateEnabledScripts {
                     userScriptManager.injectEnabledScripts(webView)
                 }
@@ -140,24 +140,7 @@ class MainActivity : AppCompatActivity() {
             systemScriptManager.injectSettings()
             systemScriptManager.disableLongClick()
 
-            pendingCharacterId?.let { id ->
-                runOnUiThread {
-                    val js = """
-                    (function() {
-                        const charLink = document.querySelector('a[href*="characterId=$id"]');
-                        if (charLink) {
-                            charLink.click();
-                        }
-                    })();
-                    """.trimIndent()
-                    webView.evaluateJavascript(js, null)
-                }
-                pendingCharacterId = null
-
-                delay(1000L)
-            }
-
-            delay(500L)
+            delay(1500L)
             runOnUiThread {
                 hideLoadingScreen()
             }
@@ -188,13 +171,6 @@ class MainActivity : AppCompatActivity() {
     @JavascriptInterface
     fun refreshPage() {
         runOnUiThread {
-            val currentUrl = webView.url
-            pendingCharacterId = currentUrl?.substringAfter("characterId=", "")?.substringBefore("&")
-
-            if (pendingCharacterId?.isEmpty() == true) {
-                pendingCharacterId = null
-            }
-
             webView.loadUrl("https://www.milkywayidle.com/characterSelect")
         }
     }

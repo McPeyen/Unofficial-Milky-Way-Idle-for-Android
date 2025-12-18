@@ -10,40 +10,36 @@ class SystemScriptManager(private val context: Context, private val webView: Web
         val selector = ".NavigationBar_navigationLink__3eAHA"
         val callback = """
         (function() {
-        // 1. The Refresh Logic
-        const handleRefresh = () => {
-            console.log("Refreshing...");
-            window.Android.refreshPage();
-        };
-
-        const injectRefreshButton = (menu) => {
-            if (menu.querySelector('.refresh-button-injected')) return;
-
-            const refreshBtn = document.createElement('button');
-            refreshBtn.className = 'Button_button__1Fe9z Button_fullWidth__17pVU refresh-button-injected';
-            refreshBtn.innerHTML = '<span>Reload Game</span>';
-
-
-            // Add the click event
-            refreshBtn.onclick = handleRefresh;
-
-            // Find the title element to insert right after it
-            const title = menu.querySelector('.Header_menuTitle__3NUq1');
-            if (title) {
-                title.insertAdjacentElement('afterend', refreshBtn);
-            }
-        };
-
-        const observer = new MutationObserver((mutations) => {
-            const menu = document.querySelector('.Header_avatarMenu__1I5qH');
-            if (menu) {
-                injectRefreshButton(menu);
-            }
-        });
-
-        observer.observe(document.body, { childList: true, subtree: true });
+            const handleRefresh = () => {
+                window.Android.refreshPage();
+            };
+    
+            const injectRefreshButton = (menu) => {
+                if (menu.querySelector('.refresh-button-injected')) return;
+    
+                const refreshBtn = document.createElement('button');
+                refreshBtn.className = 'Button_button__1Fe9z Button_fullWidth__17pVU refresh-button-injected';
+                refreshBtn.innerHTML = '<span>Reload Game</span>';
+    
+    
+                refreshBtn.onclick = handleRefresh;
+    
+                const title = menu.querySelector('.Header_menuTitle__3NUq1');
+                if (title) {
+                    title.insertAdjacentElement('afterend', refreshBtn);
+                }
+            };
+    
+            const observer = new MutationObserver((mutations) => {
+                const menu = document.querySelector('.Header_avatarMenu__1I5qH');
+                if (menu) {
+                    injectRefreshButton(menu);
+                }
+            });
+    
+            observer.observe(document.body, { childList: true, subtree: true });
         })();
-            """
+        """
         waitForElement(selector, callback)
     }
 
