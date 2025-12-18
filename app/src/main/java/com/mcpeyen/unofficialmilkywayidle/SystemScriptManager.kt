@@ -127,43 +127,52 @@ class SystemScriptManager(private val context: Context, private val webView: Web
             const gmValues = {};
 
             window.GM_setValue = function(key, value) {
+                if (value === undefined) {
+                    window.GM_deleteValue(key);
+                    return;
+                }
                 gmValues[key] = value;
                 try {
                     localStorage.setItem('GM_' + key, JSON.stringify(value));
-                } catch(e) { console.error("GM_setValue error:", e); }
+                } catch(e) {
+                    console.error("GM_setValue error:", e);
+                }
             };
-    
+
             window.GM_getValue = function(key, defaultValue) {
                 if (key in gmValues) return gmValues[key];
-    
                 const storedValue = localStorage.getItem('GM_' + key);
-                if (storedValue !== null) {
+
+                if (storedValue !== null && storedValue !== "undefined") {
                     try {
                         const value = JSON.parse(storedValue);
                         gmValues[key] = value;
                         return value;
-                    } catch(e) { console.error("GM_getValue error:", e); }
+                    } catch(e) {
+                        console.error("GM_getValue error:", e);
+                        return defaultValue;
+                    }
                 }
                 return defaultValue;
             };
-            
+
             window.GM_deleteValue = function(key) {
                 delete gmValues[key];
                 localStorage.removeItem('GM_' + key);
             };
-    
+
             window.GM_addStyle = function(css) {
                 const style = document.createElement('style');
                 style.textContent = css;
                 document.head.appendChild(style);
                 return style;
             };
-    
+
             window.GM_xmlhttpRequest = function(details) {
                 return new Promise((resolve, reject) => {
                     const xhr = new XMLHttpRequest();
                     xhr.open(details.method || 'GET', details.url, true);
-    
+
                     if (details.headers) {
                         for (const header in details.headers) {
                             xhr.setRequestHeader(header, details.headers[header]);
@@ -171,75 +180,80 @@ class SystemScriptManager(private val context: Context, private val webView: Web
                     }
                     if (details.responseType) xhr.responseType = details.responseType;
                     if (details.timeout) xhr.timeout = details.timeout;
-    
-                    const createResponse = (xhrInstance) => ({
-                        responseText: xhrInstance.responseText,
-                        responseXML: xhrInstance.responseXML,
-                        response: xhrInstance.response,
-                        status: xhrInstance.status,
-                        statusText: xhrInstance.statusText,
-                        readyState: xhrInstance.readyState,
-                        finalUrl: xhrInstance.responseURL,
-                        responseHeaders: xhrInstance.getAllResponseHeaders()
-                    });
-    
+
+                    const createResponse = (xhrInstance) => {
+                        const resp = {
+                            response: xhrInstance.response,
+                            status: xhrInstance.status,
+                            statusText: xhrInstance.statusText,
+                            readyState: xhrInstance.readyState,
+                            finalUrl: xhrInstance.responseURL,
+                            responseHeaders: xhrInstance.getAllResponseHeaders()
+                        };
+                        // Safety checks to prevent InvalidStateError
+                        if (!xhrInstance.responseType || xhrInstance.responseType === 'text') {
+                            resp.responseText = xhrInstance.responseText;
+                        }
+                        if (!xhrInstance.responseType || xhrInstance.responseType === 'document') {
+                            resp.responseXML = xhrInstance.responseXML;
+                        }
+                        return resp;
+                    };
+
                     xhr.onload = () => {
                         const response = createResponse(xhr);
                         if (details.onload) details.onload(response);
                         resolve(response);
                     };
-    
+
                     xhr.onerror = () => {
-                        const response = createResponse(xhr);
-                        if (details.onerror) details.onerror(response);
-                        reject(response);
+                        if (details.onerror) details.onerror(createResponse(xhr));
+                        reject();
                     };
-    
-                    xhr.onabort = () => {
-                        const response = createResponse(xhr);
-                        if (details.onabort) details.onabort(response);
-                        reject({aborted: true});
-                    };
-    
-                    xhr.ontimeout = () => {
-                        const response = createResponse(xhr);
-                        if (details.ontimeout) details.ontimeout(response);
-                        reject({timedout: true});
-                    };
-    
-                    if (details.onprogress) xhr.onprogress = details.onprogress;
-    
+
                     xhr.send(details.data || null);
                 });
             };
-    
-            window.GM = {
-                getValue: async function(key, defaultValue) {
-                    return window.GM_getValue(key, defaultValue);
-                },
-                setValue: async function(key, value) {
-                    return window.GM_setValue(key, value);
-                },
-                deleteValue: async function(key) {
-                    return window.GM_deleteValue(key);
-                },
-                xmlHttpRequest: window.GM_xmlhttpRequest,
-                info: {
-                    script: {
-                        version: "1.0.0",
-                        name: "Android Wrapper",
-                        handler: "AndroidWebView"
-                    }
-                }
+
+            window.scriptMenuCommands = {};
+            const menuContainer = document.createElement('div');
+            menuContainer.id = 'gm-custom-menu';
+            menuContainer.style = 'position:fixed; bottom:20px; right:20px; z-index:9999; display:none; background:white; border:1px solid #ccc; padding:10px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.2); max-height:80vh; overflow-y:auto;';
+            document.body.appendChild(menuContainer);
+
+            const menuToggle = document.createElement('button');
+            menuToggle.innerHTML = '⚙️'; // Gear icon
+            menuToggle.style = 'position:fixed; bottom:20px; right:20px; z-index:10000; width:40px; height:40px; border-radius:50%; background:#4CAF50; color:white; border:none; font-size:20px;';
+            menuToggle.onclick = () => {
+                menuContainer.style.display = menuContainer.style.display === 'none' ? 'block' : 'none';
             };
-    
+            document.body.appendChild(menuToggle);
+
+            window.GM_registerMenuCommand = function(name, fn) {
+                const btn = document.createElement('button');
+                btn.textContent = name;
+                btn.style = 'display:block; width:100%; margin:5px 0; padding:10px; text-align:left; background:#f9f9f9; border:1px solid #ddd; border-radius:4px;';
+                btn.onclick = () => {
+                    fn();
+                    menuContainer.style.display = 'none';
+                };
+                menuContainer.appendChild(btn);
+            };
+
+            window.GM = {
+                getValue: async (k, d) => window.GM_getValue(k, d),
+                setValue: async (k, v) => window.GM_setValue(k, v),
+                xmlHttpRequest: window.GM_xmlhttpRequest,
+                registerMenuCommand: window.GM_registerMenuCommand,
+                openInTab: (url) => window.open(url, '_blank'),
+                info: { script: { version: "1.0.0", name: "Android Wrapper" } }
+            };
             window.unsafeWindow = window;
-    
+
         })();
-        """.trimIndent()
+    """.trimIndent()
         webView.evaluateJavascript(jsCode, null)
     }
-
     private fun waitForElement(selector: String, callback: String) {
         val jsCode = """
         (function() {
