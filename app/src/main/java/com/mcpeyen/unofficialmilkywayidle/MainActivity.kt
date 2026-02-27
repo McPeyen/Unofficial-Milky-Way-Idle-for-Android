@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
@@ -19,6 +20,8 @@ import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import at.pardus.android.webview.gm.run.WebViewGmApi
 import at.pardus.android.webview.gm.store.ScriptStoreSQLite
 import kotlinx.coroutines.Dispatchers
@@ -40,7 +43,7 @@ class MainActivity : AppCompatActivity() {
     private var currentUrl: String = "https://www.milkywayidle.com/"
     private var resumeCount = 0
 
-    // Tracks the current script sync job so document-start injection can await it
+    // Tracks the current script sync job
     private var scriptSyncJob: Job? = null
 
     private val jsBridgeName = "WebViewGM"
@@ -58,36 +61,35 @@ class MainActivity : AppCompatActivity() {
 
         setupWebViewSettings()
 
-        // Initialize script store (SQLite) and sync scripts eagerly
-        // so they're available for document-start injection
         scriptStore = ScriptStoreSQLite(this)
         userScriptManager = UserScriptManager(this, lifecycleScope)
         scriptSyncManager = ScriptSyncManager(userScriptManager, scriptStore)
         gmScriptInjector = GmScriptInjector(scriptStore, jsBridgeName, secret)
 
-        scriptSyncJob = lifecycleScope.launch(Dispatchers.IO) {
-            scriptStore.open()
-            // Download any pending scripts, then sync to SQLite
-            val updateJob = userScriptManager.updateEnabledScripts {
-                scriptSyncManager.syncScripts()
-            }
-            updateJob.join()
-        }
-
         systemScriptManager = SystemScriptManager(this, webView)
 
-        // Register the GM API bridge (handles GM_getValue, GM_setValue, etc. from JS)
         webView.addJavascriptInterface(
             WebViewGmApi(webView, scriptStore, secret),
             jsBridgeName
         )
-
-        // Keep the Android interface for openScriptManager/refreshPage
         webView.addJavascriptInterface(WebAppInterface(), "Android")
 
         webView.webChromeClient = setupWebChromeClient()
         webView.webViewClient = setupWebViewClient()
-        webView.loadUrl("https://www.milkywayidle.com/")
+
+        // Initial sync and load
+        scriptSyncJob = lifecycleScope.launch(Dispatchers.IO) {
+            scriptStore.open()
+            val updateJob = userScriptManager.updateEnabledScripts {
+                scriptSyncManager.syncScripts()
+            }
+            updateJob.join()
+
+            withContext(Dispatchers.Main) {
+                applyDocumentStartScripts()
+                webView.loadUrl("https://www.milkywayidle.com/")
+            }
+        }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -98,19 +100,41 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
-
     }
 
     override fun onResume() {
         super.onResume()
         resumeCount++
-        if (resumeCount <= 1) return // Skip first onResume (onCreate already synced)
-        // Re-sync scripts when returning from ScriptManager (add/remove/enable/disable)
+        if (resumeCount <= 1) return
+        
         scriptSyncJob = lifecycleScope.launch(Dispatchers.IO) {
             val updateJob = userScriptManager.updateEnabledScripts {
                 scriptSyncManager.syncScripts()
             }
             updateJob.join()
+            
+            withContext(Dispatchers.Main) {
+                // If scripts changed while in manager, we re-apply them.
+                // Note: addDocumentStartJavaScript scripts are cumulative per session 
+                // unless the page is reloaded or the WebView is recreated.
+                applyDocumentStartScripts()
+            }
+        }
+    }
+
+    private fun applyDocumentStartScripts() {
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            val scripts = gmScriptInjector.getDocumentStartScripts("https://www.milkywayidle.com/")
+            for (scriptJs in scripts) {
+                WebViewCompat.addDocumentStartJavaScript(
+                    webView,
+                    scriptJs,
+                    setOf("https://www.milkywayidle.com", "https://*.milkywayidle.com")
+                )
+            }
+            Log.i("MainActivity", "Registered ${scripts.size} document-start scripts via WebViewCompat")
+        } else {
+            Log.w("MainActivity", "DOCUMENT_START_SCRIPT feature not supported on this device")
         }
     }
 
@@ -160,7 +184,11 @@ class MainActivity : AppCompatActivity() {
                     currentUrl = url
                     showLoadingScreen()
                     pageFinishedLoading = false
-                    injectDocumentStartScripts(url)
+                    
+                    // We only inject manually if the modern API is NOT supported
+                    if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                        injectDocumentStartScriptsLegacy(url)
+                    }
                 }
             }
 
@@ -179,15 +207,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun injectDocumentStartScripts(url: String) {
+    private fun injectDocumentStartScriptsLegacy(url: String) {
         lifecycleScope.launch {
-            // LZ-String is still needed by some scripts
             systemScriptManager.injectLZString()
-
-            // Wait for script sync to finish so @require libraries are in SQLite
             scriptSyncJob?.join()
-
-            // Inject document-start scripts via the GM injector
             withContext(Dispatchers.Main) {
                 gmScriptInjector.injectScripts(webView, url, false)
             }
@@ -198,13 +221,11 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             delay(1500L)
 
-            // Stage 1 done: page loaded
             runOnUiThread {
                 setStageState(1, StageState.DONE)
                 setStageState(2, StageState.ACTIVE)
             }
 
-            // Show the count early so user sees it immediately
             val enabledCount = userScriptManager.getEnabledScriptCount()
             if (enabledCount > 0) {
                 runOnUiThread {
@@ -213,28 +234,22 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            // Ensure the eager sync from onCreate/onResume is done,
-            // then re-sync to pick up any changes
             scriptSyncJob?.join()
             scriptSyncManager.syncScripts()
 
-            // Inject all document-end scripts via the library
             withContext(Dispatchers.Main) {
                 gmScriptInjector.injectScripts(webView, url, true)
             }
 
-            // Stage 2 done: scripts injected
             runOnUiThread {
                 setStageState(2, StageState.DONE)
                 setStageState(3, StageState.ACTIVE)
             }
 
-            // These stay the same - they're UI features, not GM API
             systemScriptManager.injectProfileButtons()
             systemScriptManager.injectSettings()
             systemScriptManager.disableLongClick()
 
-            // Allow scripts time to initialize before hiding the loading screen
             delay(2000L)
 
             runOnUiThread {
@@ -292,7 +307,6 @@ class MainActivity : AppCompatActivity() {
         setStageState(1, StageState.ACTIVE)
         setStageState(2, StageState.PENDING)
         setStageState(3, StageState.PENDING)
-        // Reset stage 2 text to default
         findViewById<TextView>(R.id.stage2_text).text = "Preparing scripts..."
     }
 

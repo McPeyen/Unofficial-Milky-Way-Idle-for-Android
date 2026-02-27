@@ -17,6 +17,7 @@
 package at.pardus.android.webview.gm.model;
 
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -87,9 +88,9 @@ public class Script extends ScriptMetadata {
 			downloadurl = url;
 			updateurl = downloadurl;
 		}
-		Set<String> exclude = new HashSet<String>(), include = new HashSet<String>(), match = new HashSet<String>();
-		Set<ScriptRequire> requires = new HashSet<ScriptRequire>();
-		Set<ScriptResource> resources = new HashSet<ScriptResource>();
+		Set<String> exclude = new LinkedHashSet<String>(), include = new LinkedHashSet<String>(), match = new LinkedHashSet<String>();
+		Set<ScriptRequire> requires = new LinkedHashSet<ScriptRequire>();
+		Set<ScriptResource> resources = new LinkedHashSet<ScriptResource>();
 
 		Pattern pattern = Pattern.compile("// @(\\S+)(?:\\s+(.*))?");
 		Scanner scanner = new Scanner(scriptStr);
