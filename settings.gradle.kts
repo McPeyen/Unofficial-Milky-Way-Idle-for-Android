@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "McMilkyWayIdle"
 include(":app")
+include(":webview-gm-lib")

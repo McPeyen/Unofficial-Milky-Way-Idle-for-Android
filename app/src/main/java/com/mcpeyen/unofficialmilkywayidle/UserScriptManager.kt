@@ -1,9 +1,7 @@
 package com.mcpeyen.unofficialmilkywayidle
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.util.Log
-import android.webkit.WebView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -244,83 +242,6 @@ class UserScriptManager(
             Log.e(TAG, "Error getting all scripts", e)
             emptyList()
         }
-    }
-
-    suspend fun injectEnabledScripts(webView: WebView) {
-        val enabledScriptContents = withContext(Dispatchers.IO) {
-            try {
-                val config = loadConfig()
-                val scripts =
-                    config.optJSONArray("scripts") ?: return@withContext emptyList<String>()
-
-                val contentList = mutableListOf<String>()
-                for (i in 0 until scripts.length()) {
-                    val script = scripts.optJSONObject(i)
-                    if (script?.optBoolean("enabled", false) == true) {
-                        val filename = script.optString("filename")
-                        if (filename.isNotEmpty()) {
-                            loadScriptContent(filename)?.let { content ->
-                                contentList.add(content)
-                                Log.d(TAG, "Queued script for injection: $filename")
-                            }
-                        }
-                    }
-                }
-                contentList // Return the list of script contents
-            } catch (e: Exception) {
-                Log.e(TAG, "Error loading script files", e)
-                emptyList<String>() // Return an empty list on error
-            }
-        }
-
-        // Now, if we have scripts, switch to the Main thread to interact with the WebView.
-        if (enabledScriptContents.isNotEmpty()) {
-            withContext(Dispatchers.Main) {
-                Log.d(
-                    TAG,
-                    "Creating and injecting master loader for ${enabledScriptContents.size} scripts."
-                )
-                val masterLoaderScript = createMasterLoaderScript(enabledScriptContents)
-
-                webView.evaluateJavascript(masterLoaderScript) {
-                    // This callback also runs on the Main thread.
-                    Log.d(TAG, "Master loader has been successfully dispatched to the WebView.")
-                }
-            }
-        } else {
-            Log.d(TAG, "No enabled scripts to inject.")
-        }
-    }
-
-    private fun createMasterLoaderScript(scriptContents: List<String>): String {
-        val scriptsJsonArray = JSONArray(scriptContents).toString()
-
-        return """
-            const pollForGameReady_MASTER_$$ = setInterval(() => {
-                // We will use the more reliable DOM check
-                    const targetNode = document.querySelector("div.GamePage_mainPanel__2njyb");
-                    if (true) {
-                        clearInterval(pollForGameReady_MASTER_$$);
-                        console.log('Wrapper: Game UI is ready. Injecting all ${scriptContents.size} enabled scripts.');
-
-                        const scriptsToInject = ${scriptsJsonArray};
-
-                        scriptsToInject.forEach((scriptContent, index) => {
-                            try {
-                                const scriptElement = document.createElement('script');
-                                scriptElement.type = 'text/javascript';
-                                scriptElement.textContent = scriptContent;
-                                document.head.appendChild(scriptElement);
-                                console.log('Wrapper: Successfully injected script #' + (index + 1) + '.');
-                            } catch (e) {
-                                console.error('Wrapper: Error injecting script #' + (index + 1) + ':', e);
-                            }
-                        });
-                    } else {
-                        console.log('Wrapper: Waiting for game UI to be ready...');
-                    }
-                }, 300);
-                """
     }
 
     private suspend fun initializeScriptsDirectory() {
