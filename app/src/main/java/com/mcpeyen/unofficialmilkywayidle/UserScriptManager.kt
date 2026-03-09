@@ -1,9 +1,7 @@
 package com.mcpeyen.unofficialmilkywayidle
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.util.Log
-import android.webkit.WebView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -91,6 +89,10 @@ class UserScriptManager(
                 val filename = generateFilename(name)
                 if (!downloadScript(url, filename)) return@withContext false
 
+                // Parse @version from downloaded content
+                val content = loadScriptContent(filename) ?: ""
+                val version = parseVersionFromContent(content)
+
                 configMutex.withLock {
                     val config = loadConfig()
                     val scripts = config.getJSONArray("scripts")
@@ -100,6 +102,7 @@ class UserScriptManager(
                         existingScript.put("url", url)
                         existingScript.put("enabled", enabled)
                         existingScript.put("lastUpdated", System.currentTimeMillis())
+                        if (version.isNotEmpty()) existingScript.put("version", version)
                     } else {
                         val newScript = JSONObject().apply {
                             put("name", name)
@@ -107,6 +110,7 @@ class UserScriptManager(
                             put("filename", filename)
                             put("enabled", enabled)
                             put("lastUpdated", System.currentTimeMillis())
+                            if (version.isNotEmpty()) put("version", version)
                         }
                         scripts.put(newScript)
                     }
@@ -215,6 +219,7 @@ class UserScriptManager(
                 scriptJson.put("custom", script.isCustom)
                 scriptJson.put("url", script.url)
                 scriptJson.put("lastUpdated", script.lastUpdated)
+                if (script.version.isNotEmpty()) scriptJson.put("version", script.version)
                 jsonArray.put(scriptJson)
             }
 
@@ -237,90 +242,14 @@ class UserScriptManager(
                     isEnabled = script.getBoolean("enabled"),
                     isCustom = script.optBoolean("custom", false),
                     url = script.optString("url", ""),
-                    lastUpdated = script.getLong("lastUpdated")
+                    lastUpdated = script.getLong("lastUpdated"),
+                    version = script.optString("version", "")
                 )
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error getting all scripts", e)
             emptyList()
         }
-    }
-
-    suspend fun injectEnabledScripts(webView: WebView) {
-        val enabledScriptContents = withContext(Dispatchers.IO) {
-            try {
-                val config = loadConfig()
-                val scripts =
-                    config.optJSONArray("scripts") ?: return@withContext emptyList<String>()
-
-                val contentList = mutableListOf<String>()
-                for (i in 0 until scripts.length()) {
-                    val script = scripts.optJSONObject(i)
-                    if (script?.optBoolean("enabled", false) == true) {
-                        val filename = script.optString("filename")
-                        if (filename.isNotEmpty()) {
-                            loadScriptContent(filename)?.let { content ->
-                                contentList.add(content)
-                                Log.d(TAG, "Queued script for injection: $filename")
-                            }
-                        }
-                    }
-                }
-                contentList // Return the list of script contents
-            } catch (e: Exception) {
-                Log.e(TAG, "Error loading script files", e)
-                emptyList<String>() // Return an empty list on error
-            }
-        }
-
-        // Now, if we have scripts, switch to the Main thread to interact with the WebView.
-        if (enabledScriptContents.isNotEmpty()) {
-            withContext(Dispatchers.Main) {
-                Log.d(
-                    TAG,
-                    "Creating and injecting master loader for ${enabledScriptContents.size} scripts."
-                )
-                val masterLoaderScript = createMasterLoaderScript(enabledScriptContents)
-
-                webView.evaluateJavascript(masterLoaderScript) {
-                    // This callback also runs on the Main thread.
-                    Log.d(TAG, "Master loader has been successfully dispatched to the WebView.")
-                }
-            }
-        } else {
-            Log.d(TAG, "No enabled scripts to inject.")
-        }
-    }
-
-    private fun createMasterLoaderScript(scriptContents: List<String>): String {
-        val scriptsJsonArray = JSONArray(scriptContents).toString()
-
-        return """
-            const pollForGameReady_MASTER_$$ = setInterval(() => {
-                // We will use the more reliable DOM check
-                    const targetNode = document.querySelector("div.GamePage_mainPanel__2njyb");
-                    if (true) {
-                        clearInterval(pollForGameReady_MASTER_$$);
-                        console.log('Wrapper: Game UI is ready. Injecting all ${scriptContents.size} enabled scripts.');
-
-                        const scriptsToInject = ${scriptsJsonArray};
-
-                        scriptsToInject.forEach((scriptContent, index) => {
-                            try {
-                                const scriptElement = document.createElement('script');
-                                scriptElement.type = 'text/javascript';
-                                scriptElement.textContent = scriptContent;
-                                document.head.appendChild(scriptElement);
-                                console.log('Wrapper: Successfully injected script #' + (index + 1) + '.');
-                            } catch (e) {
-                                console.error('Wrapper: Error injecting script #' + (index + 1) + ':', e);
-                            }
-                        });
-                    } else {
-                        console.log('Wrapper: Waiting for game UI to be ready...');
-                    }
-                }, 300);
-                """
     }
 
     private suspend fun initializeScriptsDirectory() {
@@ -334,27 +263,16 @@ class UserScriptManager(
             try {
                 val scripts = JSONArray()
 
-                val mwiDependencies = JSONObject()
-                mwiDependencies.put("name", "MWITools-Dependencies")
-                mwiDependencies.put(
+                val toolasha = JSONObject()
+                toolasha.put("name", "Toolasha")
+                toolasha.put(
                     "url",
-                    "https://raw.githubusercontent.com/YangLeda/Userscripts-For-MilkyWayIdle/refs/heads/main/MWITools%20addon%20for%20Steam%20version.js"
+                    "https://greasyfork.org/en/scripts/562662-toolasha/code/script.user.js"
                 )
-                mwiDependencies.put("filename", "mwitools_dependencies.js")
-                mwiDependencies.put("enabled", false)
-                mwiDependencies.put("lastUpdated", 0)
-                scripts.put(mwiDependencies)
-
-                val mwitools = JSONObject()
-                mwitools.put("name", "MWITools")
-                mwitools.put(
-                    "url",
-                    "https://greasyfork.org/en/scripts/494467-mwitools/code/script.user.js"
-                )
-                mwitools.put("filename", "mwitools.js")
-                mwitools.put("enabled", false)
-                mwitools.put("lastUpdated", 0)
-                scripts.put(mwitools)
+                toolasha.put("filename", "toolasha.js")
+                toolasha.put("enabled", true)
+                toolasha.put("lastUpdated", 0)
+                scripts.put(toolasha)
 
                 val config = JSONObject()
                 config.put("scripts", scripts)
@@ -477,11 +395,16 @@ class UserScriptManager(
         try {
             downloadScript(script.url, script.filename)
 
+            // Re-parse @version from updated content
+            val content = loadScriptContent(script.filename) ?: ""
+            val version = parseVersionFromContent(content)
+
             val config = loadConfig()
             val scriptsArray = config.getJSONArray("scripts")
             val scriptJson = scriptsArray.getJSONObject(index)
 
             scriptJson.put("lastUpdated", System.currentTimeMillis())
+            if (version.isNotEmpty()) scriptJson.put("version", version)
 
             scriptsArray.put(index, scriptJson)
             config.put("scripts", scriptsArray)
@@ -500,8 +423,21 @@ class UserScriptManager(
         var isEnabled: Boolean,
         var isCustom: Boolean,
         var url: String,
-        var lastUpdated: Long
+        var lastUpdated: Long,
+        var version: String = ""
     )
+
+    /**
+     * Parses @version from a UserScript metadata block.
+     */
+    private fun parseVersionFromContent(content: String): String {
+        val versionRegex = Regex("""//\s*@version\s+(\S+)""")
+        val metaStart = content.indexOf("// ==UserScript==")
+        val metaEnd = content.indexOf("// ==/UserScript==")
+        if (metaStart == -1 || metaEnd == -1) return ""
+        val metaBlock = content.substring(metaStart, metaEnd)
+        return versionRegex.find(metaBlock)?.groupValues?.get(1) ?: ""
+    }
 
     companion object {
         private const val TAG = "ScriptManager"

@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
@@ -13,19 +14,49 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.webkit.ScriptHandler
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
+import at.pardus.android.webview.gm.run.WebViewGmApi
+import at.pardus.android.webview.gm.store.ScriptStoreSQLite
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Job
+import java.util.UUID
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var loadingOverlay: FrameLayout
     private lateinit var userScriptManager: UserScriptManager
     private lateinit var systemScriptManager: SystemScriptManager
+    private lateinit var scriptStore: ScriptStoreSQLite
+    private lateinit var scriptSyncManager: ScriptSyncManager
+    private lateinit var gmScriptInjector: GmScriptInjector
     private var pageFinishedLoading = false
+    private var currentUrl: String = "https://www.milkywayidle.com/"
+    private var resumeCount = 0
+
+    // Tracks if this is the very first load or an explicit user-triggered refresh
+    private var isInitialOrRefresh = true
+
+    // Tracks the current script sync job
+    private var scriptSyncJob: Job? = null
+
+    // Keeps track of registered document-start scripts so we can remove them when disabled
+    private val registeredScriptHandlers = mutableListOf<ScriptHandler>()
+
+    private val jsBridgeName = "WebViewGM"
+    private val secret = UUID.randomUUID().toString()
+
+    enum class StageState { PENDING, ACTIVE, DONE }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,14 +68,36 @@ class MainActivity : AppCompatActivity() {
 
         setupWebViewSettings()
 
+        scriptStore = ScriptStoreSQLite(this)
         userScriptManager = UserScriptManager(this, lifecycleScope)
+        scriptSyncManager = ScriptSyncManager(userScriptManager, scriptStore)
+        gmScriptInjector = GmScriptInjector(scriptStore, jsBridgeName, secret)
+
         systemScriptManager = SystemScriptManager(this, webView)
+
+        webView.addJavascriptInterface(
+            WebViewGmApi(webView, scriptStore, secret),
+            jsBridgeName
+        )
+        webView.addJavascriptInterface(WebAppInterface(), "Android")
 
         webView.webChromeClient = setupWebChromeClient()
         webView.webViewClient = setupWebViewClient()
 
-        webView.addJavascriptInterface(WebAppInterface(), "Android")
-        webView.loadUrl("https://www.milkywayidle.com/")
+        // Initial sync and load
+        scriptSyncJob = lifecycleScope.launch(Dispatchers.IO) {
+            scriptStore.open()
+            val updateJob = userScriptManager.updateEnabledScripts {
+                scriptSyncManager.syncScripts()
+            }
+            updateJob.join()
+
+            withContext(Dispatchers.Main) {
+                isInitialOrRefresh = true
+                applyDocumentStartScripts()
+                webView.loadUrl("https://www.milkywayidle.com/")
+            }
+        }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -55,6 +108,52 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+    }
+
+    override fun onResume() {
+        super.onResume()
+        resumeCount++
+        if (resumeCount <= 1) return
+        
+        scriptSyncJob = lifecycleScope.launch(Dispatchers.IO) {
+            val updateJob = userScriptManager.updateEnabledScripts {
+                scriptSyncManager.syncScripts()
+            }
+            updateJob.join()
+            
+            withContext(Dispatchers.Main) {
+                // IMPORTANT: When returning from the manager, we clear all previous registrations
+                // and re-apply only the currently enabled ones.
+                applyDocumentStartScripts()
+            }
+        }
+    }
+
+    private fun applyDocumentStartScripts() {
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            // 1. Clear any previously registered document-start scripts
+            registeredScriptHandlers.forEach { it.remove() }
+            registeredScriptHandlers.clear()
+
+            // 2. Fetch and register only the currently enabled scripts
+            val scripts = gmScriptInjector.getDocumentStartScripts("https://www.milkywayidle.com/")
+            for (scriptJs in scripts) {
+                val handler = WebViewCompat.addDocumentStartJavaScript(
+                    webView,
+                    scriptJs,
+                    setOf("https://www.milkywayidle.com", "https://*.milkywayidle.com")
+                )
+                registeredScriptHandlers.add(handler)
+            }
+            Log.i("MainActivity", "Cleaned and re-registered ${scripts.size} document-start scripts")
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            scriptStore.close()
+        } catch (_: Exception) {}
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -93,9 +192,17 @@ class MainActivity : AppCompatActivity() {
                 super.onPageStarted(view, url, favicon)
 
                 if (url?.startsWith("https://www.milkywayidle.com") == true) {
-                    showLoadingScreen()
+                    currentUrl = url
+                    
+                    if (isInitialOrRefresh) {
+                        showLoadingScreen()
+                    }
+                    
                     pageFinishedLoading = false
-                    injectDocumentStartScripts()
+                    
+                    if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                        injectDocumentStartScriptsLegacy(url)
+                    }
                 }
             }
 
@@ -104,8 +211,16 @@ class MainActivity : AppCompatActivity() {
                 val isMwi = url?.startsWith("https://www.milkywayidle.com") == true
 
                 if (isMwi && !pageFinishedLoading) {
-                    injectDocumentEndScripts()
+                    currentUrl = url ?: currentUrl
+                    
+                    if (isInitialOrRefresh) {
+                        injectDocumentEndScripts(currentUrl)
+                    } else {
+                        performSilentInjection(currentUrl)
+                    }
+                    
                     pageFinishedLoading = true
+                    isInitialOrRefresh = false
                 } else if (!isMwi) {
                     hideLoadingScreen()
                 }
@@ -113,27 +228,54 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun injectDocumentStartScripts() {
+    private fun injectDocumentStartScriptsLegacy(url: String) {
         lifecycleScope.launch {
             systemScriptManager.injectLZString()
-            systemScriptManager.injectGreasemonkeyAPI()
+            scriptSyncJob?.join()
+            withContext(Dispatchers.Main) {
+                gmScriptInjector.injectScripts(webView, url, false)
+            }
         }
     }
 
-    private fun injectDocumentEndScripts() {
+    private fun performSilentInjection(url: String) {
         lifecycleScope.launch {
-            delay(1500L)
+            scriptSyncJob?.join()
+            withContext(Dispatchers.Main) {
+                gmScriptInjector.injectScripts(webView, url, true)
+                systemScriptManager.injectProfileButtons()
+                systemScriptManager.injectSettings()
+                systemScriptManager.disableLongClick()
+            }
+        }
+    }
+
+    private fun injectDocumentEndScripts(url: String) {
+        lifecycleScope.launch {
+            delay(1000L)
+
+            runOnUiThread {
+                setStageState(1, StageState.DONE)
+                setStageState(2, StageState.ACTIVE)
+            }
 
             val enabledCount = userScriptManager.getEnabledScriptCount()
             if (enabledCount > 0) {
                 runOnUiThread {
-                    findViewById<TextView>(R.id.loading_text).text =
-                        "Loading Milky Way...\nInjecting $enabledCount script(s)..."
+                    findViewById<TextView>(R.id.stage2_text).text =
+                        "Preparing $enabledCount script(s)..."
                 }
+            }
 
-                userScriptManager.updateEnabledScripts {
-                    userScriptManager.injectEnabledScripts(webView)
-                }
+            scriptSyncJob?.join()
+
+            withContext(Dispatchers.Main) {
+                gmScriptInjector.injectScripts(webView, url, true)
+            }
+
+            runOnUiThread {
+                setStageState(2, StageState.DONE)
+                setStageState(3, StageState.ACTIVE)
             }
 
             systemScriptManager.injectProfileButtons()
@@ -141,8 +283,57 @@ class MainActivity : AppCompatActivity() {
             systemScriptManager.disableLongClick()
 
             delay(1500L)
+
+            runOnUiThread {
+                setStageState(3, StageState.DONE)
+            }
+
+            delay(300L)
+
             runOnUiThread {
                 hideLoadingScreen()
+            }
+        }
+    }
+
+    private fun setStageState(stage: Int, state: StageState) {
+        val spinnerId: Int
+        val iconId: Int
+        val textId: Int
+
+        when (stage) {
+            1 -> { spinnerId = R.id.stage1_spinner; iconId = R.id.stage1_icon; textId = R.id.stage1_text }
+            2 -> { spinnerId = R.id.stage2_spinner; iconId = R.id.stage2_icon; textId = R.id.stage2_text }
+            3 -> { spinnerId = R.id.stage3_spinner; iconId = R.id.stage3_icon; textId = R.id.stage3_text }
+            else -> return
+        }
+
+        val spinner = findViewById<ProgressBar>(spinnerId)
+        val icon = findViewById<ImageView>(iconId)
+        val text = findViewById<TextView>(textId)
+
+        when (state) {
+            StageState.PENDING -> {
+                spinner.visibility = View.GONE
+                icon.visibility = View.VISIBLE
+                icon.setImageResource(R.drawable.ic_stage_pending)
+                text.alpha = 0.5f
+            }
+            StageState.ACTIVE -> {
+                spinner.visibility = View.VISIBLE
+                icon.visibility = View.GONE
+                text.alpha = 1.0f
+            }
+            StageState.DONE -> {
+                if (stage == 3) {
+                    spinner.visibility = View.VISIBLE
+                    icon.visibility = View.GONE
+                } else {
+                    spinner.visibility = View.GONE
+                    icon.visibility = View.VISIBLE
+                    icon.setImageResource(R.drawable.ic_stage_done)
+                }
+                text.alpha = 1.0f
             }
         }
     }
@@ -150,7 +341,10 @@ class MainActivity : AppCompatActivity() {
     private fun showLoadingScreen() {
         loadingOverlay.alpha = 1f
         loadingOverlay.visibility = View.VISIBLE
-        findViewById<TextView>(R.id.loading_text).text = "Loading Milky Way..."
+        setStageState(1, StageState.ACTIVE)
+        setStageState(2, StageState.PENDING)
+        setStageState(3, StageState.PENDING)
+        findViewById<TextView>(R.id.stage2_text).text = "Preparing scripts..."
     }
 
     private fun hideLoadingScreen() {
@@ -171,6 +365,7 @@ class MainActivity : AppCompatActivity() {
     @JavascriptInterface
     fun refreshPage() {
         runOnUiThread {
+            isInitialOrRefresh = true
             webView.loadUrl("https://www.milkywayidle.com/characterSelect")
         }
     }
