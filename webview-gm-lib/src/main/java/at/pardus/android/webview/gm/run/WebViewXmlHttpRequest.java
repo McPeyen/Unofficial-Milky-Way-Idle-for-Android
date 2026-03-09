@@ -352,7 +352,7 @@ public class WebViewXmlHttpRequest {
 			return;
 		}
 
-		executeJsOnUiThread("(function() { unsafeWindow."
+		executeJsOnUiThread("(function() { window."
 				+ this.onError + "(JSON.parse(" + response.toJSONString()
 				+ ")); })()");
 	}
@@ -362,7 +362,7 @@ public class WebViewXmlHttpRequest {
 			return;
 		}
 
-		executeJsOnUiThread("(function() { unsafeWindow."
+		executeJsOnUiThread("(function() { window."
 				+ this.onLoad + "(JSON.parse(" + response.toJSONString()
 				+ ")); })()");
 	}
@@ -372,7 +372,7 @@ public class WebViewXmlHttpRequest {
 			return;
 		}
 
-		executeJsOnUiThread("(function() { unsafeWindow."
+		executeJsOnUiThread("(function() { window."
 				+ this.onProgress + "(JSON.parse(" + response.toJSONString()
 				+ ")); })()");
 	}
@@ -383,7 +383,7 @@ public class WebViewXmlHttpRequest {
 			return;
 		}
 
-		executeJsOnUiThread("(function() { unsafeWindow."
+		executeJsOnUiThread("(function() { window."
 				+ this.onReadyStateChange + "(JSON.parse("
 				+ response.toJSONString() + ")); })()");
 	}
@@ -393,7 +393,7 @@ public class WebViewXmlHttpRequest {
 			return;
 		}
 
-		executeJsOnUiThread("(function() { unsafeWindow."
+		executeJsOnUiThread("(function() { window."
 				+ this.onTimeout + "(JSON.parse(" + response.toJSONString()
 				+ ")); })()");
 	}
@@ -403,7 +403,7 @@ public class WebViewXmlHttpRequest {
 			return;
 		}
 
-		executeJsOnUiThread("(function() { unsafeWindow."
+		executeJsOnUiThread("(function() { window."
 				+ getUploadOnError() + "(JSON.parse(" + response.toJSONString()
 				+ ")); })()");
 	}
@@ -413,7 +413,7 @@ public class WebViewXmlHttpRequest {
             return;
         }
 
-		executeJsOnUiThread("(function() { unsafeWindow."
+		executeJsOnUiThread("(function() { window."
 				+ getUploadOnLoad() + "(JSON.parse(" + response.toJSONString()
 				+ ")); })()");
 	}

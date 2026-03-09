@@ -89,6 +89,10 @@ class UserScriptManager(
                 val filename = generateFilename(name)
                 if (!downloadScript(url, filename)) return@withContext false
 
+                // Parse @version from downloaded content
+                val content = loadScriptContent(filename) ?: ""
+                val version = parseVersionFromContent(content)
+
                 configMutex.withLock {
                     val config = loadConfig()
                     val scripts = config.getJSONArray("scripts")
@@ -98,6 +102,7 @@ class UserScriptManager(
                         existingScript.put("url", url)
                         existingScript.put("enabled", enabled)
                         existingScript.put("lastUpdated", System.currentTimeMillis())
+                        if (version.isNotEmpty()) existingScript.put("version", version)
                     } else {
                         val newScript = JSONObject().apply {
                             put("name", name)
@@ -105,6 +110,7 @@ class UserScriptManager(
                             put("filename", filename)
                             put("enabled", enabled)
                             put("lastUpdated", System.currentTimeMillis())
+                            if (version.isNotEmpty()) put("version", version)
                         }
                         scripts.put(newScript)
                     }
@@ -213,6 +219,7 @@ class UserScriptManager(
                 scriptJson.put("custom", script.isCustom)
                 scriptJson.put("url", script.url)
                 scriptJson.put("lastUpdated", script.lastUpdated)
+                if (script.version.isNotEmpty()) scriptJson.put("version", script.version)
                 jsonArray.put(scriptJson)
             }
 
@@ -235,7 +242,8 @@ class UserScriptManager(
                     isEnabled = script.getBoolean("enabled"),
                     isCustom = script.optBoolean("custom", false),
                     url = script.optString("url", ""),
-                    lastUpdated = script.getLong("lastUpdated")
+                    lastUpdated = script.getLong("lastUpdated"),
+                    version = script.optString("version", "")
                 )
             }
         } catch (e: Exception) {
@@ -387,11 +395,16 @@ class UserScriptManager(
         try {
             downloadScript(script.url, script.filename)
 
+            // Re-parse @version from updated content
+            val content = loadScriptContent(script.filename) ?: ""
+            val version = parseVersionFromContent(content)
+
             val config = loadConfig()
             val scriptsArray = config.getJSONArray("scripts")
             val scriptJson = scriptsArray.getJSONObject(index)
 
             scriptJson.put("lastUpdated", System.currentTimeMillis())
+            if (version.isNotEmpty()) scriptJson.put("version", version)
 
             scriptsArray.put(index, scriptJson)
             config.put("scripts", scriptsArray)
@@ -410,8 +423,21 @@ class UserScriptManager(
         var isEnabled: Boolean,
         var isCustom: Boolean,
         var url: String,
-        var lastUpdated: Long
+        var lastUpdated: Long,
+        var version: String = ""
     )
+
+    /**
+     * Parses @version from a UserScript metadata block.
+     */
+    private fun parseVersionFromContent(content: String): String {
+        val versionRegex = Regex("""//\s*@version\s+(\S+)""")
+        val metaStart = content.indexOf("// ==UserScript==")
+        val metaEnd = content.indexOf("// ==/UserScript==")
+        if (metaStart == -1 || metaEnd == -1) return ""
+        val metaBlock = content.substring(metaStart, metaEnd)
+        return versionRegex.find(metaBlock)?.groupValues?.get(1) ?: ""
+    }
 
     companion object {
         private const val TAG = "ScriptManager"

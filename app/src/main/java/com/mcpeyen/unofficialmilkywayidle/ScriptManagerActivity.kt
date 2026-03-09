@@ -463,6 +463,13 @@ class ScriptManagerActivity : AppCompatActivity() {
             holder.typeText.text = if (script.isCustom) "Custom Script" else "URL Script"
             holder.lastUpdatedText.text = formatTimestamp(script.lastUpdated)
 
+            if (script.version.isNotEmpty()) {
+                holder.versionText.visibility = View.VISIBLE
+                holder.versionText.text = "v${script.version}"
+            } else {
+                holder.versionText.visibility = View.GONE
+            }
+
             if (script.isCustom) {
                 holder.urlText.visibility = View.GONE
                 holder.updateButton.visibility = View.GONE
@@ -492,6 +499,7 @@ class ScriptManagerActivity : AppCompatActivity() {
 
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             val nameText: TextView = view.findViewById(R.id.script_name)
+            val versionText: TextView = view.findViewById(R.id.script_version)
             val typeText: TextView = view.findViewById(R.id.script_type)
             val urlText: TextView = view.findViewById(R.id.script_url)
             val lastUpdatedText: TextView = view.findViewById(R.id.script_last_updated)

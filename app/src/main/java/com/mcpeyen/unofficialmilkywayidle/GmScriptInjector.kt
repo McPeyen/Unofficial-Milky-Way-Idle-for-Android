@@ -197,8 +197,36 @@ class GmScriptInjector(
                 listValues: function() {
                     return Promise.resolve(GM_listValues());
                 },
-                xmlHttpRequest: GM_xmlhttpRequest,
-                xmlhttpRequest: GM_xmlhttpRequest,
+                xmlHttpRequest: function(details) {
+                    return new Promise(function(resolve, reject) {
+                        var origOnLoad = details.onload;
+                        var origOnError = details.onerror;
+                        details.onload = function(resp) {
+                            if (origOnLoad) origOnLoad(resp);
+                            resolve(resp);
+                        };
+                        details.onerror = function(resp) {
+                            if (origOnError) origOnError(resp);
+                            reject(resp);
+                        };
+                        GM_xmlhttpRequest(details);
+                    });
+                },
+                xmlhttpRequest: function(details) {
+                    return new Promise(function(resolve, reject) {
+                        var origOnLoad = details.onload;
+                        var origOnError = details.onerror;
+                        details.onload = function(resp) {
+                            if (origOnLoad) origOnLoad(resp);
+                            resolve(resp);
+                        };
+                        details.onerror = function(resp) {
+                            if (origOnError) origOnError(resp);
+                            reject(resp);
+                        };
+                        GM_xmlhttpRequest(details);
+                    });
+                },
                 notification: GM_notification,
                 addStyle: GM_addStyle,
                 getResourceUrl: function(resourceName) {
