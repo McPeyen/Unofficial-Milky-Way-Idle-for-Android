@@ -35,10 +35,11 @@ Step into Milky Way Idle, a multiplayer idle game that combines classic RPG elem
   - Disable scripts
   - Delete scripts
   - Install new scripts
+ 
+- **Built Using webview-gm:** All credit to this library for handling a lot of the script injection logic: [webiew-gm](https://github.com/wbayer/webview-gm)
 
-- **Pre-installed with useful extensions:** There are a few useful extensions that have been bundled in. They are defaulted to **disabled** and can be enabled through the *Script Manager*
-  - [MWITools](https://greasyfork.org/en/scripts/494467-mwitools)
-  - [MWITools dependencies](https://raw.githubusercontent.com/YangLeda/Userscripts-For-MilkyWayIdle/refs/heads/main/MWITools%20addon%20for%20Steam%20version.js)
+- **Pre-installed with Toolasha extension:** It has been defaulted to **disabled** and can be enabled through the *Script Manager*
+  - [Toolasha](https://greasyfork.org/en/scripts/562662-toolasha)
 
 ## Installation
 
