@@ -175,7 +175,7 @@ class GmScriptInjector(
                     handler: 'McMilkyWayIdle'
                 },
                 scriptHandler: 'McMilkyWayIdle',
-                version: '0.51'
+                version: '0.60'
             };
         """.trimIndent() + "\n"
     }

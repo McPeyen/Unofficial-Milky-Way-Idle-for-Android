@@ -255,27 +255,16 @@ class UserScriptManager(
             try {
                 val scripts = JSONArray()
 
-                val mwiDependencies = JSONObject()
-                mwiDependencies.put("name", "MWITools-Dependencies")
-                mwiDependencies.put(
+                val toolasha = JSONObject()
+                toolasha.put("name", "Toolasha")
+                toolasha.put(
                     "url",
-                    "https://raw.githubusercontent.com/YangLeda/Userscripts-For-MilkyWayIdle/refs/heads/main/MWITools%20addon%20for%20Steam%20version.js"
+                    "https://greasyfork.org/en/scripts/562662-toolasha/code/script.user.js"
                 )
-                mwiDependencies.put("filename", "mwitools_dependencies.js")
-                mwiDependencies.put("enabled", false)
-                mwiDependencies.put("lastUpdated", 0)
-                scripts.put(mwiDependencies)
-
-                val mwitools = JSONObject()
-                mwitools.put("name", "MWITools")
-                mwitools.put(
-                    "url",
-                    "https://greasyfork.org/en/scripts/494467-mwitools/code/script.user.js"
-                )
-                mwitools.put("filename", "mwitools.js")
-                mwitools.put("enabled", false)
-                mwitools.put("lastUpdated", 0)
-                scripts.put(mwitools)
+                toolasha.put("filename", "toolasha.js")
+                toolasha.put("enabled", true)
+                toolasha.put("lastUpdated", 0)
+                scripts.put(toolasha)
 
                 val config = JSONObject()
                 config.put("scripts", scripts)

@@ -20,6 +20,7 @@ import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.webkit.ScriptHandler
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import at.pardus.android.webview.gm.run.WebViewGmApi
@@ -43,8 +44,14 @@ class MainActivity : AppCompatActivity() {
     private var currentUrl: String = "https://www.milkywayidle.com/"
     private var resumeCount = 0
 
+    // Tracks if this is the very first load or an explicit user-triggered refresh
+    private var isInitialOrRefresh = true
+
     // Tracks the current script sync job
     private var scriptSyncJob: Job? = null
+
+    // Keeps track of registered document-start scripts so we can remove them when disabled
+    private val registeredScriptHandlers = mutableListOf<ScriptHandler>()
 
     private val jsBridgeName = "WebViewGM"
     private val secret = UUID.randomUUID().toString()
@@ -86,6 +93,7 @@ class MainActivity : AppCompatActivity() {
             updateJob.join()
 
             withContext(Dispatchers.Main) {
+                isInitialOrRefresh = true
                 applyDocumentStartScripts()
                 webView.loadUrl("https://www.milkywayidle.com/")
             }
@@ -114,9 +122,8 @@ class MainActivity : AppCompatActivity() {
             updateJob.join()
             
             withContext(Dispatchers.Main) {
-                // If scripts changed while in manager, we re-apply them.
-                // Note: addDocumentStartJavaScript scripts are cumulative per session 
-                // unless the page is reloaded or the WebView is recreated.
+                // IMPORTANT: When returning from the manager, we clear all previous registrations
+                // and re-apply only the currently enabled ones.
                 applyDocumentStartScripts()
             }
         }
@@ -124,17 +131,21 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyDocumentStartScripts() {
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            // 1. Clear any previously registered document-start scripts
+            registeredScriptHandlers.forEach { it.remove() }
+            registeredScriptHandlers.clear()
+
+            // 2. Fetch and register only the currently enabled scripts
             val scripts = gmScriptInjector.getDocumentStartScripts("https://www.milkywayidle.com/")
             for (scriptJs in scripts) {
-                WebViewCompat.addDocumentStartJavaScript(
+                val handler = WebViewCompat.addDocumentStartJavaScript(
                     webView,
                     scriptJs,
                     setOf("https://www.milkywayidle.com", "https://*.milkywayidle.com")
                 )
+                registeredScriptHandlers.add(handler)
             }
-            Log.i("MainActivity", "Registered ${scripts.size} document-start scripts via WebViewCompat")
-        } else {
-            Log.w("MainActivity", "DOCUMENT_START_SCRIPT feature not supported on this device")
+            Log.i("MainActivity", "Cleaned and re-registered ${scripts.size} document-start scripts")
         }
     }
 
@@ -182,10 +193,13 @@ class MainActivity : AppCompatActivity() {
 
                 if (url?.startsWith("https://www.milkywayidle.com") == true) {
                     currentUrl = url
-                    showLoadingScreen()
+                    
+                    if (isInitialOrRefresh) {
+                        showLoadingScreen()
+                    }
+                    
                     pageFinishedLoading = false
                     
-                    // We only inject manually if the modern API is NOT supported
                     if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
                         injectDocumentStartScriptsLegacy(url)
                     }
@@ -198,8 +212,15 @@ class MainActivity : AppCompatActivity() {
 
                 if (isMwi && !pageFinishedLoading) {
                     currentUrl = url ?: currentUrl
-                    injectDocumentEndScripts(currentUrl)
+                    
+                    if (isInitialOrRefresh) {
+                        injectDocumentEndScripts(currentUrl)
+                    } else {
+                        performSilentInjection(currentUrl)
+                    }
+                    
                     pageFinishedLoading = true
+                    isInitialOrRefresh = false
                 } else if (!isMwi) {
                     hideLoadingScreen()
                 }
@@ -217,9 +238,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun performSilentInjection(url: String) {
+        lifecycleScope.launch {
+            scriptSyncJob?.join()
+            withContext(Dispatchers.Main) {
+                gmScriptInjector.injectScripts(webView, url, true)
+                systemScriptManager.injectProfileButtons()
+                systemScriptManager.injectSettings()
+                systemScriptManager.disableLongClick()
+            }
+        }
+    }
+
     private fun injectDocumentEndScripts(url: String) {
         lifecycleScope.launch {
-            delay(1500L)
+            delay(1000L)
 
             runOnUiThread {
                 setStageState(1, StageState.DONE)
@@ -235,7 +268,6 @@ class MainActivity : AppCompatActivity() {
             }
 
             scriptSyncJob?.join()
-            scriptSyncManager.syncScripts()
 
             withContext(Dispatchers.Main) {
                 gmScriptInjector.injectScripts(webView, url, true)
@@ -250,13 +282,13 @@ class MainActivity : AppCompatActivity() {
             systemScriptManager.injectSettings()
             systemScriptManager.disableLongClick()
 
-            delay(2000L)
+            delay(1500L)
 
             runOnUiThread {
                 setStageState(3, StageState.DONE)
             }
 
-            delay(500L)
+            delay(300L)
 
             runOnUiThread {
                 hideLoadingScreen()
@@ -293,9 +325,14 @@ class MainActivity : AppCompatActivity() {
                 text.alpha = 1.0f
             }
             StageState.DONE -> {
-                spinner.visibility = View.GONE
-                icon.visibility = View.VISIBLE
-                icon.setImageResource(R.drawable.ic_stage_done)
+                if (stage == 3) {
+                    spinner.visibility = View.VISIBLE
+                    icon.visibility = View.GONE
+                } else {
+                    spinner.visibility = View.GONE
+                    icon.visibility = View.VISIBLE
+                    icon.setImageResource(R.drawable.ic_stage_done)
+                }
                 text.alpha = 1.0f
             }
         }
@@ -328,6 +365,7 @@ class MainActivity : AppCompatActivity() {
     @JavascriptInterface
     fun refreshPage() {
         runOnUiThread {
+            isInitialOrRefresh = true
             webView.loadUrl("https://www.milkywayidle.com/characterSelect")
         }
     }
